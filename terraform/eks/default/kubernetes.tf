@@ -57,20 +57,11 @@ resource "time_sleep" "workloads" {
   ]
 }
 
-# Wait for VPC Resource Controller to attach trunk ENIs to nodes
-data "kubernetes_nodes" "vpc_ready_nodes" {
-  depends_on = [time_sleep.workloads]
-
-  metadata {
-    labels = {
-      "vpc.amazonaws.com/has-trunk-attached" = "true"
-    }
-  }
-}
-
+# For EKS Auto Mode, nodes are provisioned on-demand and don't have trunk ENI labels
+# Simply wait for the addons to be ready before deploying workloads
 resource "kubernetes_namespace_v1" "catalog" {
   depends_on = [
-    data.kubernetes_nodes.vpc_ready_nodes
+    time_sleep.workloads
   ]
 
   metadata {
@@ -102,7 +93,7 @@ resource "helm_release" "catalog" {
 
 resource "kubernetes_namespace_v1" "carts" {
   depends_on = [
-    data.kubernetes_nodes.vpc_ready_nodes
+    time_sleep.workloads
   ]
 
   metadata {
@@ -132,7 +123,7 @@ resource "helm_release" "carts" {
 
 resource "kubernetes_namespace_v1" "checkout" {
   depends_on = [
-    data.kubernetes_nodes.vpc_ready_nodes
+    time_sleep.workloads
   ]
 
   metadata {
@@ -163,7 +154,7 @@ resource "helm_release" "checkout" {
 
 resource "kubernetes_namespace_v1" "orders" {
   depends_on = [
-    data.kubernetes_nodes.vpc_ready_nodes
+    time_sleep.workloads
   ]
 
   metadata {
@@ -200,7 +191,7 @@ resource "helm_release" "orders" {
 
 resource "kubernetes_namespace_v1" "ui" {
   depends_on = [
-    data.kubernetes_nodes.vpc_ready_nodes
+    time_sleep.workloads
   ]
 
   metadata {

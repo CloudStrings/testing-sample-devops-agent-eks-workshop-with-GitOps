@@ -19,8 +19,8 @@ output "eks_oidc_issuer_url" {
 }
 
 output "node_security_group_id" {
-  description = "ID of the node shared security group"
-  value       = module.eks_cluster.node_security_group_id
+  description = "ID of the cluster primary security group (Auto Mode uses cluster SG)"
+  value       = module.eks_cluster.cluster_primary_security_group_id
 }
 
 output "cluster_blocker_id" {

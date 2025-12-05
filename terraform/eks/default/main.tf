@@ -1,5 +1,7 @@
 locals {
-  security_groups_active = !var.opentelemetry_enabled
+  # Disabled Security Groups for Pods for EKS Auto Mode compatibility
+  # Always use node security group for database access
+  security_groups_active = false
 }
 
 module "tags" {
@@ -51,7 +53,7 @@ module "retail_app_eks" {
   }
 
   environment_name      = var.environment_name
-  cluster_version       = "1.30"
+  cluster_version       = "1.33"
   vpc_id                = module.vpc.inner.vpc_id
   vpc_cidr              = module.vpc.inner.vpc_cidr_block
   subnet_ids            = module.vpc.inner.private_subnets

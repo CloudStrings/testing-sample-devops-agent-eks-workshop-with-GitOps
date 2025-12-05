@@ -2,6 +2,13 @@ image:
   repository: ${image_repository}
   tag: ${image_tag}
 
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
 app:
   endpoints:
     catalog: http://catalog.catalog.svc:80
@@ -21,11 +28,7 @@ istio:
   hosts:
   - "*"
 %{ else }
+# Use ClusterIP for internal access via kubectl port-forward
 service:
-  type: LoadBalancer
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: external 
-    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
-    service.beta.kubernetes.io/aws-load-balancer-attributes: "load_balancing.cross_zone.enabled=true"
+  type: ClusterIP
 %{ endif }

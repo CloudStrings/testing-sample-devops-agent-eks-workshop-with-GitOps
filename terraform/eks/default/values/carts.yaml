@@ -12,6 +12,13 @@ opentelemetry:
   instrumentation: ${opentelemetry_instrumentation}
 %{ endif }
 
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
 app:
   persistence:
     provider: dynamodb

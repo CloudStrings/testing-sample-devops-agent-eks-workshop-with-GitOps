@@ -6,13 +6,18 @@ image:
 opentelemetry:
   enabled: true
   instrumentation: ${opentelemetry_instrumentation}
-%{ else }
-securityGroups:
-  create: true
-
-  securityGroupIds:
-  - ${security_group_id}
 %{ endif }
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# Disable Security Groups for Pods for EKS Auto Mode compatibility
+securityGroups:
+  create: false
 
 app:
   persistence:

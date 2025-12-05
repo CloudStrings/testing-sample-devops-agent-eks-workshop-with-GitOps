@@ -18,10 +18,10 @@ resource "aws_eks_addon" "adot" {
 
   configuration_values = var.opentelemetry_enabled ? local.collector_configuration : "{\"collector\": {}}"
 
-  tags = {
+  tags = merge(var.tags, {
     RoleVersion        = try(kubernetes_role_v1.adot.metadata[0].resource_version, ""),
     ClusterRoleVersion = try(kubernetes_cluster_role_v1.adot.metadata[0].resource_version, "")
-  }
+  })
 
   depends_on = [module.eks_blueprints_addons]
 }

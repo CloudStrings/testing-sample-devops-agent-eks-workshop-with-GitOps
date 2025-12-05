@@ -1,6 +1,84 @@
+data "aws_caller_identity" "current" {}
+
+# IAM Role for EKS Auto Mode nodes
+resource "aws_iam_role" "eks_auto_node" {
+  name = "${var.environment_name}-eks-auto-node"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "eks_auto_node_worker" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodeMinimalPolicy"
+  role       = aws_iam_role.eks_auto_node.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_auto_node_ecr" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
+  role       = aws_iam_role.eks_auto_node.name
+}
+
+# IAM Role for EKS Auto Mode cluster (with additional Auto Mode policies)
+resource "aws_iam_role" "eks_auto_cluster" {
+  name = "${var.environment_name}-eks-auto-cluster"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# Required policies for EKS Auto Mode cluster role
+resource "aws_iam_role_policy_attachment" "eks_auto_cluster_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  role       = aws_iam_role.eks_auto_cluster.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_auto_compute_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSComputePolicy"
+  role       = aws_iam_role.eks_auto_cluster.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_auto_block_storage_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSBlockStoragePolicy"
+  role       = aws_iam_role.eks_auto_cluster.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_auto_load_balancing_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSLoadBalancingPolicy"
+  role       = aws_iam_role.eks_auto_cluster.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_auto_networking_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSNetworkingPolicy"
+  role       = aws_iam_role.eks_auto_cluster.name
+}
+
 module "eks_cluster" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.9"
+  version = "~> 20.31"
 
   providers = {
     kubernetes = kubernetes.cluster
@@ -10,16 +88,71 @@ module "eks_cluster" {
   cluster_version                = var.cluster_version
   cluster_endpoint_public_access = true
 
-  cluster_addons = {
-    vpc-cni = {
-      before_compute = true
-      most_recent    = true
-      configuration_values = jsonencode({
-        env = {
-          ENABLE_POD_ENI                    = "true"
-          POD_SECURITY_GROUP_ENFORCING_MODE = "standard"
+  # Use custom cluster role with Auto Mode policies
+  create_iam_role = false
+  iam_role_arn    = aws_iam_role.eks_auto_cluster.arn
+
+  # Access configuration - API_AND_CONFIG_MAP mode
+  authentication_mode = "API_AND_CONFIG_MAP"
+
+  # Access entries for user and role
+  access_entries = {
+    kulkshya = {
+      principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/kulkshya"
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
         }
-      })
+        cluster_admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+    Administrator = {
+      principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/Administrator"
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+        cluster_admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+  }
+
+  # EKS Auto Mode configuration
+  cluster_compute_config = {
+    enabled       = true
+    node_pools    = ["general-purpose", "system"]
+    node_role_arn = aws_iam_role.eks_auto_node.arn
+  }
+
+
+
+  # Disable self-managed addons for Auto Mode
+  bootstrap_self_managed_addons = false
+
+  # Auto Mode handles these - only keep observability addons
+  cluster_addons = {
+    amazon-cloudwatch-observability = {
+      most_recent              = true
+      service_account_role_arn = aws_iam_role.cloudwatch_observability.arn
+    }
+    metrics-server = {
+      most_recent = true
     }
   }
 
@@ -28,112 +161,24 @@ module "eks_cluster" {
   subnet_ids               = var.subnet_ids
   control_plane_subnet_ids = var.subnet_ids
 
-  eks_managed_node_groups = {
-    node_group_1 = {
-      name                 = "managed-nodegroup-1"
-      instance_types       = ["m5.large"]
-      subnet_ids           = [var.subnet_ids[0]]
-      force_update_version = true
+  # Auto Mode manages compute - remove managed node groups
+  eks_managed_node_groups = {}
 
-      min_size     = 1
-      max_size     = 3
-      desired_size = 1
-    }
+  # Auto Mode manages node security groups - minimal additional rules needed
+  node_security_group_additional_rules = {}
 
-    node_group_2 = {
-      name                 = "managed-nodegroup-2"
-      instance_types       = ["m5.large"]
-      subnet_ids           = [var.subnet_ids[1]]
-      force_update_version = true
-
-      min_size     = 1
-      max_size     = 3
-      desired_size = 1
-    }
-
-    node_group_3 = {
-      name                 = "managed-nodegroup-3"
-      instance_types       = ["m5.large"]
-      subnet_ids           = [var.subnet_ids[2]]
-      force_update_version = true
-
-      min_size     = 1
-      max_size     = 3
-      desired_size = 1
-    }
-  }
-
-  node_security_group_additional_rules = {
-    ingress_self_all = {
-      description = "Node to node all ports/protocols"
-      protocol    = "-1"
-      from_port   = 0
-      to_port     = 0
-      type        = "ingress"
-      self        = true
-    }
-
-    egress_all = {
-      description      = "Node all egress"
-      protocol         = "-1"
-      from_port        = 0
-      to_port          = 0
-      type             = "egress"
-      cidr_blocks      = ["0.0.0.0/0"]
-      ipv6_cidr_blocks = ["::/0"]
-    }
-
-    ingress_cluster_to_node_all_traffic = {
-      description                   = "Cluster API to Nodegroup all traffic"
-      protocol                      = "-1"
-      from_port                     = 0
-      to_port                       = 0
-      type                          = "ingress"
-      source_cluster_security_group = true
-    }
-  }
+  # Enable EKS Auto Mode features
+  enable_cluster_creator_admin_permissions = true
 
   tags = var.tags
-}
 
-resource "aws_security_group_rule" "dns_udp" {
-  type              = "ingress"
-  from_port         = 53
-  to_port           = 53
-  protocol          = "udp"
-  cidr_blocks       = [var.vpc_cidr]
-  security_group_id = module.eks_cluster.node_security_group_id
-}
-
-resource "aws_security_group_rule" "dns_tcp" {
-  type              = "ingress"
-  from_port         = 53
-  to_port           = 53
-  protocol          = "tcp"
-  cidr_blocks       = [var.vpc_cidr]
-  security_group_id = module.eks_cluster.node_security_group_id
-}
-
-resource "aws_security_group_rule" "istio" {
-  count = var.istio_enabled ? 1 : 0
-
-  type              = "ingress"
-  from_port         = 15012
-  to_port           = 15012
-  protocol          = "tcp"
-  cidr_blocks       = [var.vpc_cidr]
-  security_group_id = module.eks_cluster.node_security_group_id
-}
-
-resource "aws_security_group_rule" "istio_webhook" {
-  count = var.istio_enabled ? 1 : 0
-
-  type              = "ingress"
-  from_port         = 15017
-  to_port           = 15017
-  protocol          = "tcp"
-  cidr_blocks       = [var.vpc_cidr]
-  security_group_id = module.eks_cluster.node_security_group_id
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_auto_cluster_policy,
+    aws_iam_role_policy_attachment.eks_auto_compute_policy,
+    aws_iam_role_policy_attachment.eks_auto_block_storage_policy,
+    aws_iam_role_policy_attachment.eks_auto_load_balancing_policy,
+    aws_iam_role_policy_attachment.eks_auto_networking_policy,
+  ]
 }
 
 module "eks_blueprints_addons" {
@@ -145,7 +190,8 @@ module "eks_blueprints_addons" {
   cluster_version   = module.eks_cluster.cluster_version
   oidc_provider_arn = module.eks_cluster.oidc_provider_arn
 
-  enable_aws_load_balancer_controller = true
+  # Auto Mode handles load balancing - disable ALB controller
+  enable_aws_load_balancer_controller = false
   enable_cert_manager                 = true
 }
 
