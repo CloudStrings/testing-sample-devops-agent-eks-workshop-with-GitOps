@@ -538,6 +538,18 @@ brew install helm
 helm version
 ```
 
+### 5. AWS IAM Identity Center (SSO) for Amazon Managed Grafana
+
+Amazon Managed Grafana requires AWS IAM Identity Center (formerly AWS SSO) for user authentication. You must enable IAM Identity Center in your AWS account before deploying this lab.
+
+**Setup Guide:** [Enable IAM Identity Center for Amazon Managed Grafana](https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG-SSO.html)
+
+**Quick Steps:**
+1. Open the [IAM Identity Center console](https://console.aws.amazon.com/singlesignon)
+2. Click **Enable** if not already enabled
+3. Create users or groups that will access Grafana
+4. After Terraform deployment, assign users to the Grafana workspace
+
 ## Deployment
 
 ### Terraform Deployment Options
