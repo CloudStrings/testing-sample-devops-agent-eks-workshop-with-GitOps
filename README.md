@@ -1,5 +1,9 @@
 ![Banner](./docs/images/banner.png)
 
+> **🚀 Ready to deploy?** Skip to the [Deployment](#deployment) section to start deploying the infrastructure with Terraform.
+
+---
+
 ## Getting Started
 
 ### Install Git
@@ -631,7 +635,11 @@ Amazon Managed Grafana requires AWS IAM Identity Center (formerly AWS SSO) for u
 3. Create users or groups that will access Grafana
 4. After Terraform deployment, assign users to the Grafana workspace
 
-## Deployment
+---
+
+# 🚀 Deployment
+
+---
 
 ### Terraform Deployment Options
 
