@@ -1463,6 +1463,37 @@ From the Operator Web App:
 
 4. Click **Start** and watch the investigation unfold in real-time
 
+#### Investigation Prompts for Fault Injection Scenarios
+
+After injecting a fault using the scripts in the [Fault Injection Scenarios](#fault-injection-scenarios) section, use these prompts to start a DevOps Agent investigation:
+
+| Scenario | Investigation Prompt |
+|----------|---------------------|
+| [Catalog Latency](#1-catalog-service-latency-injection) | "Investigate latency degradation in the Catalog microservice running in the `catalog` namespace. Users report slow product page loads. Analyze CloudWatch Container Insights and Prometheus metrics for p99 latency spikes. Check CPU throttling metrics and X-Ray traces for the `/products` endpoint." |
+| [RDS Stress Test](#2-rds-database-stress-test) | "Investigate database performance degradation affecting the Orders service. Users report checkout failures. Analyze RDS Performance Insights for the `retail-store-orders` PostgreSQL cluster for CPU spikes, slow queries, and lock wait events." |
+| [Network Partition](#3-network-partition-ui--cart) | "Investigate intermittent failures in cart operations. Users can browse products but Add to Cart fails with timeouts. Check Kubernetes NetworkPolicy resources and Network Flow Monitor for blocked traffic between `ui` and `carts` namespaces." |
+| [RDS Security Group Block](#4-rds-security-group-misconfiguration) | "Investigate complete database connectivity failure for Orders and Checkout services. RDS shows healthy but applications return 500/502/504 errors. Analyze VPC Flow Logs for REJECT entries on port 5432 and check RDS security group rules." |
+| [Cart Memory Leak](#5-cart-memory-leak) | "Investigate Cart service instability with pods repeatedly restarting. Analyze Kubernetes events for OOMKilled termination reasons in the `carts` namespace. Check memory usage growth pattern and restart counts." |
+| [DynamoDB Latency](#6-dynamodb-latency) | "Investigate slow cart operations. Add to cart and checkout operations are taking 500ms+ longer than normal. Analyze CloudWatch DynamoDB metrics for `retail-store-carts` table and X-Ray traces for DynamoDB SDK call latency." |
+
+**Investigation Flow:**
+
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│  1. Inject Fault    │────▶│  2. Observe Symptoms│────▶│  3. Start           │
+│  (run inject script)│     │  (monitoring tools) │     │  Investigation      │
+└─────────────────────┘     └─────────────────────┘     └──────────┬──────────┘
+                                                                   │
+                                                                   ▼
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│  6. Rollback Fault  │◀────│  5. Review & Approve│◀────│  4. Agent Analyzes  │
+│  (run rollback      │     │  Recommendations    │     │  & Correlates Data  │
+│   script)           │     │                     │     │                     │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+```
+
+> **Tip:** For detailed investigation prompts with specific metrics and starting points, see the "DevOps Agent Investigation Prompts" section under each [Fault Injection Scenario](#fault-injection-scenarios).
+
 #### Interacting During Investigations
 
 You can interact with the agent during investigations:
