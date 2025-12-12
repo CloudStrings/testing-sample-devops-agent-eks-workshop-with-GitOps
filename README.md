@@ -1,19 +1,43 @@
 ![Banner](./docs/images/banner.png)
 
-<div align="center">
-  <div align="center">
+## Getting Started
 
-[![Stars](https://img.shields.io/github/stars/aws-containers/retail-store-sample-app)](Stars)
-![GitHub License](https://img.shields.io/github/license/aws-containers/retail-store-sample-app?color=green)
-![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Faws-containers%2Fretail-store-sample-app%2Frefs%2Fheads%2Fmain%2F.release-please-manifest.json&query=%24%5B%22.%22%5D&label=release)
-![GitHub Release Date](https://img.shields.io/github/release-date/aws-containers/retail-store-sample-app)
+### Install Git
 
-  </div>
+If you don't have Git installed, install it first:
 
-  <strong>
-  <h2>AWS Containers Retail Sample</h2>
-  </strong>
-</div>
+```bash
+# Linux (Debian/Ubuntu)
+sudo apt-get update && sudo apt-get install git
+
+# Linux (RHEL/CentOS/Amazon Linux)
+sudo yum install git
+
+# macOS (using Homebrew)
+brew install git
+
+# Verify installation
+git --version
+```
+
+### Clone the Repository
+
+```bash
+# Clone the repository
+git clone git@gitlab.aws.dev:kulkshya/retail-app-automode.git
+
+# Navigate to the project directory
+cd retail-app-automode
+
+# Switch to the devops-agent-integration branch
+git checkout devops-agent-integration
+```
+
+**Branch Information:**
+- `main` - Stable release branch
+- `devops-agent-integration` - Contains DevOps Agent integration with fault injection scenarios and observability setup (recommended for this lab)
+
+---
 
 ## Lab Introduction & Goals
 
@@ -283,13 +307,70 @@ Grafana provides visualization and dashboarding for all collected metrics.
 2. Sign in using AWS IAM Identity Center (SSO)
 3. Navigate to **Dashboards** to view pre-built visualizations
 
+**Configuring the Prometheus Data Source:**
+
+The Prometheus data source must be manually configured in Grafana to query metrics from Amazon Managed Prometheus (AMP).
+
+1. Get your AMP workspace endpoint:
+   ```bash
+   terraform output prometheus_workspace_endpoint
+   ```
+   
+2. In Grafana, navigate to **Connections** → **Data sources** → **Add data source** → **Prometheus**
+
+3. Configure the data source with these settings:
+   - **Name:** `Amazon Managed Prometheus` (or your preferred name)
+   - **URL:** Your AMP workspace endpoint (e.g., `https://aps-workspaces.us-east-1.amazonaws.com/workspaces/ws-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
+   
+   > **Note:** The Prometheus endpoint URL is unique to your deployment. Get it from the Terraform output above.
+
+4. Under **Authentication**, enable **SigV4 auth**:
+   - Toggle **SigV4 auth** to ON
+   - **Default Region:** `us-east-1` (or your deployment region)
+   - Leave **Assume Role ARN** empty (Grafana uses its workspace IAM role automatically)
+
+5. Under **HTTP Method**, select **POST**
+
+6. Click **Save & test** to verify the connection
+
+> **Troubleshooting:** If you receive a `403 Forbidden` error, ensure SigV4 auth is enabled. Amazon Managed Grafana automatically uses its workspace IAM role for authentication - no manual credentials are needed.
+
 **Recommended Dashboards to Import:**
+
+**How to Import a Dashboard:**
+1. In Grafana, click **Dashboards** in the left sidebar
+2. Click **New** → **Import**
+3. Enter the **Grafana ID** from the table below in the "Import via grafana.com" field
+4. Click **Load**
+5. Select your **Prometheus data source** (the one you configured above)
+6. Click **Import**
+
+The dashboard will be added to your Grafana instance and start displaying metrics immediately.
 
 | Dashboard | Grafana ID | Description |
 |-----------|------------|-------------|
+| **Control Plane** | | |
+| Kubernetes API Server | 15761 | API server request rates, latencies, and error rates |
+| etcd | 3070 | etcd cluster health, leader elections, and disk I/O |
+| Kubernetes Controller Manager | 12122 | Controller work queue depths and reconciliation metrics |
+| Kubernetes Scheduler | 12123 | Scheduler latency, pending pods, and preemption metrics |
+| **Kube State Metrics** | | |
+| Kubernetes Cluster (via kube-state-metrics) | 13332 | Comprehensive cluster state overview |
+| Kubernetes Deployment Statefulset Daemonset | 8588 | Workload replica status and rollout progress |
+| Kubernetes Resource Requests vs Limits | 13770 | Resource allocation vs actual usage |
+| Kubernetes Pod Status | 15759 | Pod phase distribution and container states |
+| **Node Exporter** | | |
+| Node Exporter Full | 1860 | Comprehensive node hardware and OS metrics |
+| Node Exporter for Prometheus | 11074 | Simplified node metrics overview |
+| Node Problem Detector | 15549 | Node conditions and kernel issues |
+| **Network & Conntrack** | | |
+| Kubernetes Networking | 12125 | Pod and service network traffic |
+| Node Network and Conntrack | 14996 | Connection tracking table usage and network stats |
+| CoreDNS | 14981 | DNS query rates, latencies, and cache hit ratios |
+| **General Kubernetes** | | |
 | Kubernetes Cluster Monitoring | 315 | Cluster-wide resource utilization |
-| Node Exporter Full | 1860 | Detailed node metrics |
 | Kubernetes Pods | 6336 | Pod-level metrics and logs |
+| Kubernetes Namespace Resources | 14678 | Per-namespace resource consumption |
 | AWS RDS | 707 | RDS database performance |
 | AWS DynamoDB | 12637 | DynamoDB table metrics |
 
