@@ -10,6 +10,10 @@
 - [Lab Introduction & Goals](#lab-introduction--goals)
 - [Architecture Overview](#architecture-overview)
 - [Observability Stack](#observability-stack---deep-dive)
+  - [CloudWatch Container Insights](#cloudwatch-container-insights)
+  - [Application Signals (APM)](#cloudwatch-application-signals-apm)
+  - [Amazon Managed Prometheus](#amazon-managed-prometheus-amp)
+  - [Amazon Managed Grafana](#amazon-managed-grafana)
 - [🚀 Deployment](#-deployment)
   - [Prerequisites](#prerequisites)
   - [Terraform Deployment Options](#terraform-deployment-options)
@@ -17,6 +21,12 @@
   - [Configure kubectl Access](#configure-kubectl-access)
 - [Application Access](#application-access-ui-service)
 - [Fault Injection Scenarios](#fault-injection-scenarios)
+  - [Catalog Service Latency](#1-catalog-service-latency-injection)
+  - [RDS Database Stress Test](#2-rds-database-stress-test)
+  - [Network Partition (UI → Cart)](#3-network-partition-ui--cart)
+  - [RDS Security Group Block](#4-rds-security-group-misconfiguration)
+  - [Cart Memory Leak](#5-cart-memory-leak)
+  - [DynamoDB Latency](#6-dynamodb-latency)
 - [AWS DevOps Agent Integration](#aws-devops-agent-integration)
 - [Cleanup](#cleanup)
 
@@ -226,6 +236,51 @@ Container Insights provides enhanced observability for EKS clusters with the fol
 - Error rates and HTTP status code distribution
 - Service dependency visualization
 - SLO monitoring and alerting
+
+#### CloudWatch Application Signals (APM)
+
+Application Signals provides Application Performance Monitoring (APM) capabilities for your microservices. Four of the five services are auto-instrumented:
+
+| Service | Language | Auto-Instrumented | APM Features |
+|---------|----------|-------------------|--------------|
+| UI | Java | ✅ Yes | Traces, metrics, service map |
+| Carts | Java | ✅ Yes | Traces, metrics, service map |
+| Orders | Java | ✅ Yes | Traces, metrics, service map |
+| Checkout | Node.js | ✅ Yes | Traces, metrics, service map |
+| Catalog | Go | ❌ No | Manual OTEL instrumentation only |
+
+**Accessing Application Signals Console:**
+
+1. Open the [CloudWatch Console](https://console.aws.amazon.com/cloudwatch)
+2. In the left navigation, click **Application Signals** → **Services**
+3. You will see the 4 instrumented services listed:
+   - `ui` (Java)
+   - `carts` (Java)
+   - `orders` (Java)
+   - `checkout` (Node.js)
+
+**Key APM Features in Application Signals:**
+
+- **Service Map**: Visual representation of service dependencies and traffic flow
+  - Navigate to **Application Signals** → **Service Map**
+  - See real-time connections between UI → Catalog, UI → Carts, Checkout → Orders, etc.
+
+- **Service Details**: Click on any service to view:
+  - Request rate (requests/second)
+  - Latency percentiles (p50, p95, p99)
+  - Error rate and fault rate
+  - Top operations and endpoints
+
+- **Traces**: Distributed tracing across services
+  - Navigate to **Application Signals** → **Traces**
+  - Filter by service, operation, or latency
+  - View end-to-end request flow across microservices
+
+- **SLO Monitoring**: Set Service Level Objectives
+  - Define availability and latency targets
+  - Get alerts when SLOs are breached
+
+> **Note:** The Catalog service (Go) does not appear in Application Signals because Go auto-instrumentation is not supported. However, it still sends traces via manual OpenTelemetry SDK instrumentation visible in X-Ray.
 
 **Container Logs Collection:**
 
