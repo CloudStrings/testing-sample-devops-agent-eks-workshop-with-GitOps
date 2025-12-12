@@ -1,6 +1,24 @@
 ![Banner](./docs/images/banner.png)
 
-> **🚀 Ready to deploy?** Skip to the [Deployment](#deployment) section to start deploying the infrastructure with Terraform.
+> **🚀 Ready to deploy?** Skip to the [Deployment](#-deployment) section to start deploying the infrastructure with Terraform.
+
+---
+
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Lab Introduction & Goals](#lab-introduction--goals)
+- [Architecture Overview](#architecture-overview)
+- [Observability Stack](#observability-stack---deep-dive)
+- [🚀 Deployment](#-deployment)
+  - [Prerequisites](#prerequisites)
+  - [Terraform Deployment Options](#terraform-deployment-options)
+  - [Deploy the Full EKS Version](#deploy-the-full-eks-version)
+  - [Configure kubectl Access](#configure-kubectl-access)
+- [Application Access](#application-access-ui-service)
+- [Fault Injection Scenarios](#fault-injection-scenarios)
+- [AWS DevOps Agent Integration](#aws-devops-agent-integration)
+- [Cleanup](#cleanup)
 
 ---
 
@@ -546,6 +564,10 @@ When you inject faults using the provided scripts, the DevOps Agent can automati
 
 ---
 
+# 🚀 Deployment
+
+---
+
 ## Prerequisites
 
 Before deploying and running fault injection scenarios, install the following tools:
@@ -634,12 +656,6 @@ Amazon Managed Grafana requires AWS IAM Identity Center (formerly AWS SSO) for u
 2. Click **Enable** if not already enabled
 3. Create users or groups that will access Grafana
 4. After Terraform deployment, assign users to the Grafana workspace
-
----
-
-# 🚀 Deployment
-
----
 
 ### Terraform Deployment Options
 
