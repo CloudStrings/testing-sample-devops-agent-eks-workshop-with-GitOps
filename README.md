@@ -13,7 +13,7 @@
   - [CloudWatch Container Insights](#cloudwatch-container-insights)
   - [Application Signals (APM)](#cloudwatch-application-signals-apm)
   - [Amazon Managed Prometheus](#amazon-managed-prometheus-amp)
-  - [Amazon Managed Grafana](#amazon-managed-grafana)
+  - [Amazon Managed Grafana (Optional)](#amazon-managed-grafana)
 - [🚀 Deployment](#-deployment)
   - [Prerequisites](#prerequisites)
   - [Terraform Deployment Options](#terraform-deployment-options)
