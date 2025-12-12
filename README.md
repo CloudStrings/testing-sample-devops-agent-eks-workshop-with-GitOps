@@ -369,6 +369,8 @@ The EKS Managed Prometheus Scraper collects metrics from multiple sources:
 
 #### Amazon Managed Grafana
 
+> **📌 Optional:** Amazon Managed Grafana is optional for this lab. The primary focus is on the AWS DevOps Agent, which automatically analyzes metrics from CloudWatch and Prometheus. Configure Grafana only if you want to manually review and visualize metrics through custom dashboards.
+
 Grafana provides visualization and dashboarding for all collected metrics.
 
 **Pre-configured Data Sources:**
@@ -701,6 +703,8 @@ helm version
 ```
 
 ### 5. AWS IAM Identity Center (SSO) for Amazon Managed Grafana
+
+> **📌 Optional:** This step is only required if you want to use Amazon Managed Grafana for manual metrics visualization. The AWS DevOps Agent does not require Grafana - it directly queries CloudWatch and Prometheus for automated analysis.
 
 Amazon Managed Grafana requires AWS IAM Identity Center (formerly AWS SSO) for user authentication. You must enable IAM Identity Center in your AWS account before deploying this lab.
 
