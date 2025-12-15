@@ -54,9 +54,11 @@ git --version
 
 ### Clone the Repository
 
+> **First time using GitLab?** If you haven't set up SSH access for GitLab, follow the [GitLab SSH Configuration Guide](https://gitlab.pages.aws.dev/docs/Platform/ssh.html#ssh-config) first.
+
 ```bash
 # Clone the repository
-git clone git@gitlab.aws.dev:kulkshya/retail-app-automode.git
+git clone git@ssh.gitlab.aws.dev:kulkshya/retail-app-automode.git
 
 # Navigate to the project directory
 cd retail-app-automode
@@ -64,6 +66,11 @@ cd retail-app-automode
 # Switch to the devops-agent-integration branch
 git checkout devops-agent-integration
 ```
+
+> **Note:** If the above clone command fails, try using the alternative GitLab URL:
+> ```bash
+> git clone git@gitlab.aws.dev:kulkshya/retail-app-automode.git
+> ```
 
 **Branch Information:**
 - `main` - Stable release branch
@@ -704,17 +711,23 @@ helm version
 
 ### 5. AWS IAM Identity Center (SSO) for Amazon Managed Grafana
 
-> **📌 Optional:** This step is only required if you want to use Amazon Managed Grafana for manual metrics visualization. The AWS DevOps Agent does not require Grafana - it directly queries CloudWatch and Prometheus for automated analysis.
+> **📌 Optional:** Amazon Managed Grafana is **disabled by default** in this deployment. Grafana requires AWS IAM Identity Center (SSO) to be configured, and if SSO is not set up, the Terraform deployment will fail. The AWS DevOps Agent does not require Grafana - it directly queries CloudWatch and Prometheus for automated analysis.
 
-Amazon Managed Grafana requires AWS IAM Identity Center (formerly AWS SSO) for user authentication. You must enable IAM Identity Center in your AWS account before deploying this lab.
+**To enable Grafana**, you must:
+1. First configure AWS IAM Identity Center in your account
+2. Set `enable_grafana = true` in your Terraform variables
 
 **Setup Guide:** [Enable IAM Identity Center for Amazon Managed Grafana](https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG-SSO.html)
 
-**Quick Steps:**
+**Quick Steps to Enable Grafana:**
 1. Open the [IAM Identity Center console](https://console.aws.amazon.com/singlesignon)
 2. Click **Enable** if not already enabled
 3. Create users or groups that will access Grafana
-4. After Terraform deployment, assign users to the Grafana workspace
+4. Deploy with Grafana enabled:
+   ```bash
+   terraform apply -var="enable_grafana=true"
+   ```
+5. After deployment, assign users to the Grafana workspace
 
 ### Terraform Deployment Options
 
@@ -761,7 +774,7 @@ When you run `terraform apply`, the following resources will be provisioned:
 **Observability Stack:**
 - Amazon CloudWatch Container Insights with Application Signals
 - Amazon Managed Service for Prometheus (AMP) with EKS scraper
-- Amazon Managed Grafana workspace
+- Amazon Managed Grafana workspace (optional, requires `enable_grafana = true` and AWS SSO)
 - AWS X-Ray integration
 - Network Flow Monitoring Agent
 
@@ -789,6 +802,15 @@ terraform apply
 # 5. Note the outputs - you'll need these for kubectl configuration
 #    Look for: cluster_name, region, and any endpoint URLs
 terraform output
+```
+
+**Optional: Enable Amazon Managed Grafana**
+
+> **⚠️ Important:** Grafana requires AWS IAM Identity Center (SSO) to be configured in your account. If SSO is not set up, Terraform will fail when `enable_grafana=true`. See [Prerequisites - AWS IAM Identity Center](#5-aws-iam-identity-center-sso-for-amazon-managed-grafana) for setup instructions.
+
+```bash
+# To deploy with Grafana enabled (requires AWS SSO):
+terraform apply -var="enable_grafana=true"
 ```
 
 #### Configure EKS Access Entry (Required Manual Step)
@@ -865,9 +887,6 @@ kubectl get pods -A | grep -E "carts|catalog|orders|checkout|ui"
 
 # Get the UI service URL
 kubectl get svc -n ui
-
-# For ALB-based ingress, get the load balancer URL
-kubectl get ingress -n ui
 ```
 
 ## Application Access (UI Service)
@@ -1372,19 +1391,25 @@ This tag is **critical** for the DevOps Agent to:
 
 The Terraform deployment automatically applies this tag to all resources. If you create additional resources manually, ensure you add this tag.
 
-#### Configure EKS as a Resource Source
+#### EKS Cluster Discovery
 
-To enable the DevOps Agent to access your EKS cluster:
+AWS DevOps Agent automatically discovers your EKS cluster through the IAM roles configured during Agent Space creation. There is no manual "Add Resource Source" step required.
 
-1. In your Agent Space, go to **Settings** → **Resource Sources**
-2. Click **Add Resource Source**
-3. Select **Amazon EKS**
-4. Choose your cluster: `retail-store`
-5. The agent will automatically discover:
+Once your Agent Space is created with the appropriate IAM permissions, the agent will:
+
+1. **Automatically discover** your EKS cluster (`retail-store`) through the Topology view
+2. **Correlate EKS resources** including:
    - Namespaces and deployments
    - Pod status and events
    - Service configurations
    - Resource utilization metrics
+3. **Build relationships** between your EKS workloads and backend services (RDS, DynamoDB, ElastiCache, etc.)
+
+To verify discovery, navigate to the **Topology** tab in your Agent Space. The topology shows key resources and relationships the agent has identified. As the agent completes more investigations, it will discover and add new resources to this view.
+
+> **Note:** All resources in this lab are tagged with `devopsagent = "true"`, which helps the agent identify and correlate related infrastructure components.
+
+> **📚 Documentation:** For detailed instructions on creating an Agent Space, see the [AWS DevOps Agent User Guide - Creating an Agent Space](https://docs.aws.amazon.com/devopsagent/latest/userguide/getting-started-with-aws-devops-agent-creating-an-agent-space.html).
 
 ### View Topology Graph
 

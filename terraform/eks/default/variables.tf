@@ -36,3 +36,9 @@ variable "container_image_overrides" {
   default     = {}
   description = "Object that encapsulates any overrides to default values"
 }
+
+variable "enable_grafana" {
+  description = "Boolean value that enables Amazon Managed Grafana. Requires AWS SSO to be configured in the account."
+  type        = bool
+  default     = false
+}

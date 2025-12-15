@@ -523,14 +523,16 @@ EOT
   depends_on = [module.eks_cluster]
 }
 
-# Amazon Managed Grafana Workspace
+# Amazon Managed Grafana Workspace (Optional - requires AWS SSO)
 resource "aws_grafana_workspace" "retail_store" {
+  count = var.enable_grafana ? 1 : 0
+
   name                     = "${var.environment_name}-grafana"
   description              = "Grafana workspace for ${var.environment_name} EKS cluster monitoring"
   account_access_type      = "CURRENT_ACCOUNT"
   authentication_providers = ["AWS_SSO"]
   permission_type          = "SERVICE_MANAGED"
-  role_arn                 = aws_iam_role.grafana.arn
+  role_arn                 = aws_iam_role.grafana[0].arn
   grafana_version          = "10.4"
 
   data_sources = [
@@ -544,13 +546,17 @@ resource "aws_grafana_workspace" "retail_store" {
 
 # Assign SSO user as Grafana Admin
 resource "aws_grafana_role_association" "admin" {
+  count = var.enable_grafana ? 1 : 0
+
   role         = "ADMIN"
   user_ids     = ["93670cbcb3-674ed0ab-834b-437c-b3ac-59439269e212"]  # kulkshya@amazon.com
-  workspace_id = aws_grafana_workspace.retail_store.id
+  workspace_id = aws_grafana_workspace.retail_store[0].id
 }
 
 # IAM Role for Grafana
 resource "aws_iam_role" "grafana" {
+  count = var.enable_grafana ? 1 : 0
+
   name = "${var.environment_name}-grafana"
 
   assume_role_policy = jsonencode({
@@ -571,8 +577,10 @@ resource "aws_iam_role" "grafana" {
 
 # Policy for Grafana to read from AMP
 resource "aws_iam_role_policy" "grafana_amp" {
+  count = var.enable_grafana ? 1 : 0
+
   name = "${var.environment_name}-grafana-amp-policy"
-  role = aws_iam_role.grafana.id
+  role = aws_iam_role.grafana[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -595,13 +603,17 @@ resource "aws_iam_role_policy" "grafana_amp" {
 
 # Policy for Grafana to read CloudWatch
 resource "aws_iam_role_policy_attachment" "grafana_cloudwatch" {
-  role       = aws_iam_role.grafana.name
+  count = var.enable_grafana ? 1 : 0
+
+  role       = aws_iam_role.grafana[0].name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
 }
 
 # Policy for Grafana to read X-Ray
 resource "aws_iam_role_policy_attachment" "grafana_xray" {
-  role       = aws_iam_role.grafana.name
+  count = var.enable_grafana ? 1 : 0
+
+  role       = aws_iam_role.grafana[0].name
   policy_arn = "arn:aws:iam::aws:policy/AWSXrayReadOnlyAccess"
 }
 
@@ -618,10 +630,10 @@ output "prometheus_workspace_endpoint" {
 
 output "grafana_workspace_endpoint" {
   description = "Endpoint of the Amazon Managed Grafana workspace"
-  value       = aws_grafana_workspace.retail_store.endpoint
+  value       = var.enable_grafana ? aws_grafana_workspace.retail_store[0].endpoint : null
 }
 
 output "grafana_workspace_id" {
   description = "ID of the Amazon Managed Grafana workspace"
-  value       = aws_grafana_workspace.retail_store.id
+  value       = var.enable_grafana ? aws_grafana_workspace.retail_store[0].id : null
 }

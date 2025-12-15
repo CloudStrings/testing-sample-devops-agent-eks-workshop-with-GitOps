@@ -15,3 +15,9 @@ variable "opentelemetry_enabled" {
   type        = bool
   default     = false
 }
+
+variable "enable_grafana" {
+  description = "Boolean value that enables Amazon Managed Grafana. Requires AWS SSO to be configured in the account."
+  type        = bool
+  default     = false
+}
