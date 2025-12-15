@@ -1134,8 +1134,9 @@ The DevOps Agent needs an EKS Access Entry to query the Kubernetes API. Follow t
 
 1. Open the [AWS DevOps Agent Console](https://console.aws.amazon.com/devops-agent/home?region=us-east-1)
 2. Select your Agent Space
-3. Go to **Settings** and find the **Execution Role ARN**
-4. Copy the role ARN (e.g., `arn:aws:iam::123456789012:role/DevOpsAgentExecutionRole-xxxxx`)
+3. Navigate to **Capabilities** → **Cloud** → **Primary Source** → **Edit**
+4. The IAM Role ARN used by the Agent Space is displayed in the configuration
+5. Copy the role ARN (e.g., `arn:aws:iam::123456789012:role/DevOpsAgentRole-xxxxx`)
 
 **Step 2: Add the Role to EKS Access Entries**
 
