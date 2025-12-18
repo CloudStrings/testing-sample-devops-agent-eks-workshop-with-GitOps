@@ -44,23 +44,65 @@ echo "=== Network Partition Injection Complete ==="
 echo ""
 echo "Blocked: UI namespace -> Cart service"
 echo "Allowed: All other services -> Cart service"
+
+# Source verification functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/verify-functions.sh" 2>/dev/null || true
+
+# Step 3: Verify the partition
+echo ""
+echo "[3/4] Verifying network partition..."
+
+echo ""
+echo "  Testing connectivity from UI to Carts (should FAIL):"
+UI_POD=$(kubectl get pod -n ui -l app.kubernetes.io/name=ui -o name 2>/dev/null | head -1)
+if [ -n "$UI_POD" ]; then
+  RESULT=$(kubectl exec -n ui $UI_POD -- curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://carts.carts.svc.cluster.local/carts 2>/dev/null || echo "timeout")
+  if [ "$RESULT" == "timeout" ] || [ "$RESULT" == "000" ]; then
+    echo "    ✓ Connection blocked as expected (timeout)"
+  else
+    echo "    ⚠ Connection returned HTTP $RESULT (expected timeout)"
+  fi
+else
+  echo "    - No UI pod found"
+fi
+
+echo ""
+echo "  Testing connectivity from Checkout to Carts (should WORK):"
+CHECKOUT_POD=$(kubectl get pod -n checkout -l app.kubernetes.io/name=checkout -o name 2>/dev/null | head -1)
+if [ -n "$CHECKOUT_POD" ]; then
+  RESULT=$(kubectl exec -n checkout $CHECKOUT_POD -- curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://carts.carts.svc.cluster.local/carts 2>/dev/null || echo "failed")
+  if [ "$RESULT" == "200" ] || [ "$RESULT" == "201" ]; then
+    echo "    ✓ Connection successful (HTTP $RESULT)"
+  else
+    echo "    ⚠ Connection returned: $RESULT"
+  fi
+else
+  echo "    - No Checkout pod found"
+fi
+
+# Step 4: Generate traffic and check logs
+echo ""
+echo "[4/4] Generating traffic to trigger errors..."
+
+# Generate traffic via UI service
+generate_traffic_burst "ui" "ui" 8083 "/" 5 2>/dev/null || true
+
+echo ""
+echo "  Checking UI logs for cart errors:"
+kubectl logs -n ui -l app.kubernetes.io/name=ui --tail=50 2>/dev/null | grep -iE "cart|timeout|error" | tail -5 | sed 's/^/    /' || echo "    No cart-related errors yet"
+
+echo ""
+echo "=== Fault Injection Active ==="
 echo ""
 echo "Expected symptoms:"
 echo "  - UI page loads normally"
 echo "  - Add to cart / checkout fails with timeout"
-echo "  - 504 Gateway timeout errors in ALB logs"
+echo "  - Pods in CrashLoopBackOff or Error state (if retries exhausted)"
 echo "  - Increased error rate in UI pod logs"
-echo "  - Prometheus: request_failures increase, success_rate drop"
 echo ""
-echo "Test the partition:"
-echo "  # From UI pod (should fail/timeout):"
-echo "  kubectl exec -n ui -it \$(kubectl get pod -n ui -o name | head -1) -- curl -v --max-time 5 http://carts.carts.svc.cluster.local/carts"
-echo ""
-echo "  # From another namespace (should work):"
-echo "  kubectl run test-curl --rm -it --image=curlimages/curl --restart=Never -- curl -v --max-time 5 http://carts.carts.svc.cluster.local/carts"
-echo ""
-echo "Monitor:"
-echo "  kubectl logs -f -n ui -l app.kubernetes.io/name=ui --tail=50"
+echo "Check logs:"
+echo "  kubectl logs -n ui -l app.kubernetes.io/name=ui --tail=50"
 echo ""
 echo "Rollback:"
 echo "  ./fault-injection/rollback-network-partition.sh"

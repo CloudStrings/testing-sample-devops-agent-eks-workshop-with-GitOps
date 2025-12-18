@@ -133,17 +133,41 @@ echo "Injected faults:"
 echo "  - Memory leak sidecar: Consumes ~10MB every 5 seconds"
 echo "  - Main container memory: Reduced from 512Mi to 256Mi"
 echo "  - Sidecar memory limit: 200Mi (will OOMKill around 200MB leaked)"
+
+# Source verification functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/verify-functions.sh" 2>/dev/null || true
+
+# Step 4: Check initial pod status
+echo ""
+echo "[4/6] Checking pod status..."
+check_pod_status "$NAMESPACE" "app.kubernetes.io/name=carts" 2>/dev/null || kubectl get pods -n $NAMESPACE --no-headers | sed 's/^/    /'
+
+# Step 5: Check resource usage
+echo ""
+echo "[5/6] Checking resource usage..."
+check_resource_usage "$NAMESPACE" "app.kubernetes.io/name=carts" 2>/dev/null || kubectl top pods -n $NAMESPACE 2>/dev/null | sed 's/^/    /' || echo "    Metrics not available"
+
+# Step 6: Generate traffic
+echo ""
+echo "[6/6] Generating traffic to carts service..."
+generate_traffic_burst "$NAMESPACE" "carts" 8084 "/carts" 10 2>/dev/null || true
+
+echo ""
+echo "=== Fault Injection Active ==="
 echo ""
 echo "Expected symptoms (within 2-5 minutes):"
 echo "  - Pod restarts due to OOMKilled"
 echo "  - CrashLoopBackOff status"
-echo "  - Increased memory usage in Prometheus/CloudWatch"
-echo "  - Cart operation failures in UI"
+echo "  - Increased memory usage in metrics"
+echo "  - Cart operation failures"
 echo ""
-echo "Monitor:"
-echo "  watch kubectl get pods -n $NAMESPACE"
-echo "  kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=carts -c memory-leaker -f"
+echo "Monitor OOM events:"
+echo "  kubectl get pods -n $NAMESPACE -w"
 echo "  kubectl describe pod -n $NAMESPACE -l app.kubernetes.io/name=carts | grep -A5 'Last State'"
+echo ""
+echo "Check logs:"
+echo "  kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=carts -c memory-leaker --tail=20"
 echo ""
 echo "Rollback:"
 echo "  ./fault-injection/rollback-cart-memory-leak.sh"

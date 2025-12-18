@@ -1486,11 +1486,18 @@ Simulates high latency in the Catalog microservice by adding a sidecar that inje
 - Adds 300-500ms latency on outbound HTTP calls via `tc netem`
 - Reduces CPU limits from 256m to 128m (50% reduction)
 
-**Expected symptoms:**
-- p99 latency spikes in Prometheus/CloudWatch
-- CPU throttling metrics elevated
+**Expected behavior after injection:**
+- Catalog pods will restart with the new configuration (latency sidecar added)
+- Product pages will load noticeably slower (3-5 seconds instead of <1 second)
+- CPU throttling will cause intermittent slowdowns under load
+- UI service may show timeout errors when fetching product listings
+- Users will experience degraded browsing experience
+
+**Expected symptoms in monitoring:**
+- p99 latency spikes in Prometheus/CloudWatch (300-500ms increase)
+- CPU throttling metrics elevated (`container_cpu_cfs_throttled_seconds_total`)
 - Increased response times in application logs
-- Potential timeout errors from dependent services
+- Potential timeout errors from dependent services (UI → Catalog calls)
 
 **Run the scenario:**
 ```bash
@@ -1524,11 +1531,20 @@ Creates heavy load on the PostgreSQL RDS instance to simulate database performan
 - Creates a 100k row stress table
 - Generates complex queries causing full table scans
 
-**Expected symptoms:**
+**Expected behavior after injection:**
+- A stress test pod will be created in the `orders` namespace
+- Orders service will become slow or unresponsive within 1-2 minutes
+- Checkout process will fail with database timeout errors
+- Order history pages will take 10+ seconds to load or timeout
+- New orders will fail to be created
+- Application logs will show `Connection timed out` and `HikariPool` errors
+
+**Expected symptoms in monitoring:**
 - RDS CPU utilization: 70-100%
-- Slow queries visible in Performance Insights
+- Slow queries visible in Performance Insights (queries taking 5-30+ seconds)
 - Lock wait events (LWLock, Lock:transactionid)
-- Orders/Checkout service timeouts
+- Orders/Checkout service timeouts and 500 errors
+- HikariCP connection pool exhaustion in pod logs
 
 **Run the scenario:**
 ```bash
@@ -1564,11 +1580,20 @@ Blocks network traffic from UI service to Cart service using Kubernetes NetworkP
 - Applies NetworkPolicy blocking ingress to Cart pods from UI namespace
 - Other services can still communicate with Cart
 
-**Expected symptoms:**
-- UI page loads normally
-- Add to cart / checkout fails with timeout
-- 504 Gateway timeout errors in ALB logs
-- Increased error rate in UI pod logs
+**Expected behavior after injection:**
+- Pods will NOT restart (this is a network-level block, not a pod change)
+- Product browsing will work normally (UI → Catalog is unaffected)
+- "Add to Cart" button will hang for ~30 seconds then fail
+- Cart page will show empty or fail to load
+- Checkout will be completely broken (cannot access cart items)
+- Users will see timeout errors when interacting with cart functionality
+
+**Expected symptoms in monitoring:**
+- UI page loads normally (catalog works fine)
+- Add to cart / checkout fails with timeout (30+ seconds)
+- Connection timeout errors in UI pod logs (`java.net.SocketTimeoutException`)
+- Increased error rate in UI service metrics
+- Network flow logs show blocked traffic from UI to Carts namespace
 
 **Run the scenario:**
 ```bash
@@ -1595,30 +1620,61 @@ kubectl run test-from-default --rm -it --image=curlimages/curl --restart=Never -
 
 ### 4. RDS Security Group Misconfiguration
 
-Simulates an accidental security group change that blocks EKS nodes from connecting to RDS.
+Simulates an accidental security group change that blocks EKS nodes from connecting to ALL RDS instances.
 
 **What it does:**
-- Removes the ingress rule allowing EKS cluster SG to access RDS on port 5432
-- RDS instance remains healthy but unreachable
+- Auto-discovers all RDS instances in the region
+- Removes ingress rules allowing EKS cluster SG to access RDS on ports 3306 (MySQL) and 5432 (PostgreSQL)
+- Automatically restarts application pods to trigger connection failures
+- RDS instances remain healthy but unreachable from EKS
 
-**Expected symptoms:**
-- Orders/Checkout service failures
-- "Connection timed out" errors in pod logs
-- ALB returning 500/502/504 errors
-- RDS shows healthy in console but unreachable
-- VPC Flow Logs show REJECT for port 5432 traffic
+**Expected behavior after injection:**
+- Catalog, Orders, and Checkout pods will be restarted by the script
+- Pods will enter `Running` state but application will fail health checks
+- Pods may go into `CrashLoopBackOff` if health checks fail repeatedly
+- All database-dependent operations will fail immediately
+- Product catalog will be empty or show errors
+- Order history will fail to load
+- Checkout process will fail completely
+- RDS instances will appear healthy in AWS Console (misleading!)
+
+**Expected symptoms in monitoring:**
+- Orders/Checkout/Catalog service failures (500 errors)
+- "Connection timed out" or "SocketTimeoutException" errors in pod logs
+- HikariCP connection pool failures (`Failed to create/setup connection`)
+- RDS shows healthy in console but unreachable from application
+- VPC Flow Logs show REJECT for ports 3306/5432 traffic
 
 **Run the scenario:**
 ```bash
-# Inject the fault
+# Inject the fault (auto-discovers and blocks all RDS instances)
 ./fault-injection/inject-rds-sg-block.sh
 
-# Monitor application failures
-kubectl logs -n orders -l app.kubernetes.io/name=orders --tail=20
-kubectl logs -n checkout -l app.kubernetes.io/name=checkout --tail=20
-
-# Rollback
+# Rollback (restores all revoked rules)
 ./fault-injection/rollback-rds-sg-block.sh
+```
+
+**Check application logs for errors:**
+```bash
+# Orders service logs (PostgreSQL connection errors)
+kubectl logs -n orders -l app.kubernetes.io/name=orders --tail=50
+
+# Checkout service logs
+kubectl logs -n checkout -l app.kubernetes.io/name=checkout --tail=50
+
+# Catalog service logs (MySQL connection errors)
+kubectl logs -n catalog -l app.kubernetes.io/name=catalog --tail=50
+```
+
+**Expected error messages in logs:**
+```
+org.postgresql.util.PSQLException: The connection attempt failed.
+Caused by: java.net.SocketTimeoutException: Connect timed out
+
+com.zaxxer.hikari.pool.PoolBase: HikariPool-1 - Pool is empty, failed to create/setup connection
+
+Error 1045 (28000): Access denied for user... (MySQL)
+java.sql.SQLNonTransientConnectionException: Could not connect to address
 ```
 
 **DevOps Agent Investigation Prompts:**
@@ -1638,11 +1694,22 @@ Simulates a memory leak in the Cart service causing OOMKill and pod restarts.
 - Reduces main container memory from 512Mi to 256Mi
 - Sidecar has 200Mi limit, triggers OOMKill when exceeded
 
-**Expected symptoms:**
-- Pod restarts due to OOMKilled
-- CrashLoopBackOff status
-- Increased memory usage in Prometheus/CloudWatch
-- Cart operation failures in UI
+**Expected behavior after injection:**
+- Cart pods will restart with the new configuration (memory-leaker sidecar added)
+- Within 1-2 minutes, memory usage will climb rapidly
+- Pods will be killed by Kubernetes with `OOMKilled` status
+- Pods will restart and enter `CrashLoopBackOff` cycle
+- Cart functionality will be intermittently available (works briefly after restart, then fails)
+- Users will see "Service Unavailable" errors when accessing cart
+- Pod restart count will increase continuously (visible in `kubectl get pods`)
+
+**Expected symptoms in monitoring:**
+- Pod restarts due to `OOMKilled` (visible in `kubectl describe pod`)
+- `CrashLoopBackOff` status in pod list
+- Memory usage spikes to limit then drops (sawtooth pattern)
+- Increased memory usage in Prometheus/CloudWatch before each crash
+- Cart operation failures in UI (intermittent 500 errors)
+- Kubernetes events showing `OOMKilled` reason
 
 **Run the scenario:**
 ```bash
@@ -1678,12 +1745,21 @@ Adds artificial network latency to DynamoDB calls from the Cart service.
 - Adds sidecar with `tc qdisc netem` to inject 500ms ± 50ms latency
 - Affects all Cart service outbound traffic
 
-**Expected symptoms:**
-- Cart operations slow (add to cart, view cart)
-- DynamoDB latency increase in CloudWatch
-- Application timeouts during checkout
-- Thread queuing in Cart service
-- p99 latency spikes in Prometheus
+**Expected behavior after injection:**
+- Cart pods will restart with the new configuration (latency sidecar added)
+- All cart operations will become noticeably slow (500ms+ added to each operation)
+- "Add to Cart" will take 2-3 seconds instead of <500ms
+- Viewing cart will be slow
+- Checkout process will be sluggish (multiple DynamoDB calls)
+- Under load, requests may start timing out
+- Users will experience frustrating delays but service remains functional
+
+**Expected symptoms in monitoring:**
+- Cart operations slow (add to cart, view cart taking 2-5 seconds)
+- DynamoDB latency increase in CloudWatch (`SuccessfulRequestLatency` metric)
+- Application timeouts during checkout under heavy load
+- Thread queuing in Cart service (increased thread pool usage)
+- p99 latency spikes in Prometheus (500ms+ increase)
 
 **Run the scenario:**
 ```bash

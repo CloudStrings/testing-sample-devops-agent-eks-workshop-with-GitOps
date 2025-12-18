@@ -5,7 +5,7 @@ metadata:
     deployment.kubernetes.io/revision: "1"
     meta.helm.sh/release-name: carts
     meta.helm.sh/release-namespace: carts
-  creationTimestamp: "2025-12-08T20:41:38Z"
+  creationTimestamp: "2025-12-16T23:18:08Z"
   generation: 2
   labels:
     app.kubernetes.io/component: service
@@ -16,8 +16,8 @@ metadata:
     helm.sh/chart: carts-1.3.0
   name: carts
   namespace: carts
-  resourceVersion: "1065015"
-  uid: 693e6dbe-7a28-4f0a-a061-f67771e6dc92
+  resourceVersion: "170023"
+  uid: aa85f496-2b01-4daa-9307-ebd032612740
 spec:
   progressDeadlineSeconds: 600
   replicas: 2
@@ -36,6 +36,7 @@ spec:
   template:
     metadata:
       annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
         prometheus.io/path: /actuator/prometheus
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
@@ -103,14 +104,14 @@ spec:
 status:
   availableReplicas: 2
   conditions:
-  - lastTransitionTime: "2025-12-08T20:41:38Z"
-    lastUpdateTime: "2025-12-08T20:42:57Z"
-    message: ReplicaSet "carts-6cbd9c6f98" has successfully progressed.
+  - lastTransitionTime: "2025-12-16T23:18:08Z"
+    lastUpdateTime: "2025-12-16T23:20:08Z"
+    message: ReplicaSet "carts-5cb7cb8876" has successfully progressed.
     reason: NewReplicaSetAvailable
     status: "True"
     type: Progressing
-  - lastTransitionTime: "2025-12-10T21:26:17Z"
-    lastUpdateTime: "2025-12-10T21:26:17Z"
+  - lastTransitionTime: "2025-12-17T06:21:51Z"
+    lastUpdateTime: "2025-12-17T06:21:51Z"
     message: Deployment has minimum availability.
     reason: MinimumReplicasAvailable
     status: "True"

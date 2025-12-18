@@ -111,16 +111,54 @@ echo ""
 echo "Injected faults:"
 echo "  - Latency: 300-500ms on outbound HTTP calls"
 echo "  - CPU: Reduced from 256m to 128m (50% reduction)"
+
+# Source verification functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/verify-functions.sh" 2>/dev/null || true
+
+# Step 5: Check pod status
 echo ""
-echo "Expected observable symptoms:"
-echo "  - p99 latency spikes in Prometheus/CloudWatch"
-echo "  - CPU throttling metrics elevated"
-echo "  - Increased response times in application logs"
+echo "[5/7] Checking pod status..."
+check_pod_status "$NAMESPACE" "app.kubernetes.io/name=catalog" 2>/dev/null || kubectl get pods -n $NAMESPACE --no-headers | sed 's/^/    /'
+
+# Step 6: Check resource usage
+echo ""
+echo "[6/7] Checking resource usage (CPU throttling)..."
+check_resource_usage "$NAMESPACE" "app.kubernetes.io/name=catalog" 2>/dev/null || kubectl top pods -n $NAMESPACE 2>/dev/null | sed 's/^/    /' || echo "    Metrics not available"
+
+# Step 7: Test latency
+echo ""
+echo "[7/7] Testing response latency..."
+
+echo ""
+echo "  Measuring catalog service response time:"
+kubectl port-forward -n $NAMESPACE svc/catalog 8085:80 &>/dev/null &
+PF_PID=$!
+sleep 2
+
+if kill -0 $PF_PID 2>/dev/null; then
+  for i in 1 2 3; do
+    START=$(date +%s%3N)
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:8085/catalogue 2>/dev/null)
+    END=$(date +%s%3N)
+    LATENCY=$((END - START))
+    echo "    Request $i: HTTP $STATUS (${LATENCY}ms)"
+  done
+  kill $PF_PID 2>/dev/null
+else
+  echo "    Could not port-forward to catalog"
+fi
+
+echo ""
+echo "=== Fault Injection Active ==="
+echo ""
+echo "Expected symptoms:"
+echo "  - Response times 300-500ms higher than normal"
+echo "  - CPU throttling (high CPU but limited by 128m)"
 echo "  - Potential timeout errors from dependent services"
 echo ""
-echo "To verify injection:"
-echo "  kubectl get pods -n $NAMESPACE"
-echo "  kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=catalog -c latency-injector"
+echo "Check latency injector logs:"
+echo "  kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=catalog -c latency-injector --tail=10"
 echo ""
-echo "To rollback:"
+echo "Rollback:"
 echo "  ./fault-injection/rollback-catalog.sh"
