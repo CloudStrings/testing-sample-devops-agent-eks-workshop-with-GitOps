@@ -17,7 +17,7 @@
 - [🚀 Deployment](#-deployment)
   - [Prerequisites](#prerequisites)
   - [Terraform Deployment Options](#terraform-deployment-options)
-  - [Deploy the Full EKS Version](#deploy-the-full-eks-version)
+  - [Deploy the EKS Cluster](#deploy-the-eks-cluster)
   - [Configure kubectl Access](#configure-kubectl-access)
 - [Application Access](#application-access-ui-service)
 - [AWS DevOps Agent Integration](#aws-devops-agent-integration)
@@ -90,7 +90,7 @@ This hands-on lab demonstrates how to deploy, operate, and troubleshoot a produc
 
 ### What You'll Learn
 
-1. **Deploy the Full EKS Version of the Retail Sample App** - Deploy a complete microservices architecture to Amazon EKS using Terraform, including all backend dependencies and observability tooling.
+1. **Deploy the EKS Cluster with Retail Sample App** - Deploy a complete microservices architecture to Amazon EKS using Terraform, including all backend dependencies and observability tooling.
 
 2. **Understand the Microservices Architecture** - Explore how the five core microservices (UI, Catalog, Carts, Orders, Checkout) interact with each other and their backend dependencies.
 
