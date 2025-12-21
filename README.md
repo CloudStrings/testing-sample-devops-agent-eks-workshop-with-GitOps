@@ -67,9 +67,6 @@ git clone https://github.com/aws-samples/AmazonEKS-Devops-agent-sample.git
 
 # Navigate to the project directory
 cd retail-app-automode
-
-# Switch to the devops-agent-integration branch
-git checkout devops-agent-integration
 cd AmazonEKS-Devops-agent-sample
 ```
 
@@ -78,26 +75,24 @@ cd AmazonEKS-Devops-agent-sample
 > git clone git@gitlab.aws.dev:kulkshya/retail-app-automode.git
 > ```
 
-> **🔧 Troubleshooting Git Clone Issues?** If you're encountering persistent issues with `git clone` (SSH key problems, network restrictions, etc.), you can download the repository as a ZIP file instead:
-> 1. Navigate to the repository in your browser: https://gitlab.aws.dev/kulkshya/retail-app-automode
+> **🔧 Troubleshooting Git Clone Issues?** If you're encountering persistent issues with `git clone` (SSH key problems, network restrictions, etc.), you can download the repositories as ZIP files instead:
+>
+> **For GitLab (retail-app-automode):**
+> 1. Navigate to: https://gitlab.aws.dev/kulkshya/retail-app-automode
 > 2. Click the **Download** button (or **Code** → **Download source code**)
-> 3. Select **Download ZIP** (or your preferred format)
-> 4. Extract the ZIP file to your desired location:
-
-> **🔧 Troubleshooting Git Clone Issues?** If you're encountering issues with `git clone`, you can download the repository as a ZIP file instead:
-> 1. Navigate to the repository in your browser: https://github.com/aws-samples/AmazonEKS-Devops-agent-sample
+> 3. Select **Download ZIP**
+>
+> **For GitHub (AmazonEKS-Devops-agent-sample):**
+> 1. Navigate to: https://github.com/aws-samples/AmazonEKS-Devops-agent-sample
 > 2. Click the **Code** button → **Download ZIP**
-> 3. Extract the ZIP file to your desired location:
->    ```bash
->    unzip retail-app-automode-devops-agent-integration.zip
->    cd retail-app-automode-devops-agent-integration
->    unzip AmazonEKS-Devops-agent-sample-main.zip
->    cd AmazonEKS-Devops-agent-sample-main
->    ```
-
-**Branch Information:**
-- `main` - Stable release branch
-- `devops-agent-integration` - Contains DevOps Agent integration with fault injection scenarios and observability setup (recommended for this lab)
+>
+> **Extract and navigate:**
+> ```bash
+> unzip retail-app-automode-main.zip
+> cd retail-app-automode-main
+> unzip AmazonEKS-Devops-agent-sample-main.zip
+> cd AmazonEKS-Devops-agent-sample-main
+> ```
 
 ---
 ## Lab Introduction & Goals
