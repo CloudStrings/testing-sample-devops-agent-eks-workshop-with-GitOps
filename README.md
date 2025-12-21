@@ -314,33 +314,7 @@ AMP provides a fully managed Prometheus-compatible monitoring service.
 
 The EKS Managed Prometheus Scraper collects metrics from multiple sources:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Prometheus Scraper                            │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ API Server   │  │ Kubelet      │  │ cAdvisor             │   │
-│  │ /metrics     │  │ /metrics     │  │ /metrics/cadvisor    │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │kube-state-   │  │ node-        │  │ Application Pods     │   │
-│  │metrics       │  │ exporter     │  │ (prometheus.io/      │   │
-│  │              │  │              │  │  scrape: true)       │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐                             │
-│  │kube-scheduler│  │kube-         │                             │
-│  │ /metrics     │  │controller-mgr│                             │
-│  └──────────────┘  └──────────────┘                             │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │  AMP Workspace  │
-                    │  (remote_write) │
-                    └─────────────────┘
-```
+![Prometheus Scraper Architecture](./docs/images/prometheus-scraper.png)
 
 **Key Metrics Available:**
 
@@ -523,34 +497,7 @@ OTEL_JAVA_GLOBAL_AUTOCONFIGURE_ENABLED: "true"
 
 #### Metrics Flow Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              EKS Cluster                                     │
-│                                                                              │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐   │
-│  │ Application │    │ kube-state- │    │   node-     │    │  cAdvisor   │   │
-│  │    Pods     │    │   metrics   │    │  exporter   │    │             │   │
-│  │  /metrics   │    │  /metrics   │    │  /metrics   │    │  /metrics   │   │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘   │
-│         │                  │                  │                  │          │
-│         └──────────────────┴──────────────────┴──────────────────┘          │
-│                                      │                                       │
-│                           ┌──────────▼──────────┐                           │
-│                           │  EKS Managed        │                           │
-│                           │  Prometheus Scraper │                           │
-│                           └──────────┬──────────┘                           │
-└──────────────────────────────────────┼──────────────────────────────────────┘
-                                       │
-                            ┌──────────▼──────────┐
-                            │  Amazon Managed     │
-                            │  Prometheus (AMP)   │
-                            └──────────┬──────────┘
-                                       │
-                            ┌──────────▼──────────┐
-                            │  Amazon Managed     │
-                            │  Grafana            │
-                            └─────────────────────┘
-```
+![Metrics Flow Architecture](./docs/images/metrics-flow.png)
 
 #### Viewing Observability Data
 
@@ -1183,26 +1130,7 @@ The **Topology** view provides a visual map of your system components and their 
 
 The topology graph displays:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        DevOps Agent Topology View                            │
-│                                                                              │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                    │
-│  │   EKS       │────▶│   Aurora    │     │  DynamoDB   │                    │
-│  │  Cluster    │     │   MySQL     │     │   Table     │                    │
-│  └──────┬──────┘     └─────────────┘     └─────────────┘                    │
-│         │                                                                    │
-│  ┌──────▼──────┐     ┌─────────────┐     ┌─────────────┐                    │
-│  │ Deployments │────▶│   Aurora    │     │ ElastiCache │                    │
-│  │ (5 services)│     │ PostgreSQL  │     │   Redis     │                    │
-│  └─────────────┘     └─────────────┘     └─────────────┘                    │
-│                                                                              │
-│  ┌─────────────┐     ┌─────────────┐                                        │
-│  │  CloudWatch │     │  Amazon MQ  │                                        │
-│  │   Alarms    │     │  RabbitMQ   │                                        │
-│  └─────────────┘     └─────────────┘                                        │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+![DevOps Agent Topology View](./docs/images/devops-topology.png)
 
 #### Understanding Relationships
 
@@ -1332,19 +1260,7 @@ After injecting a fault using the scripts in the [Fault Injection Scenarios](#fa
 
 **Investigation Flow:**
 
-```
-┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
-│  1. Inject Fault    │────▶│  2. Observe Symptoms│────▶│  3. Start           │
-│  (run inject script)│     │  (monitoring tools) │     │  Investigation      │
-└─────────────────────┘     └─────────────────────┘     └──────────┬──────────┘
-                                                                   │
-                                                                   ▼
-┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
-│  6. Rollback Fault  │◀────│  5. Review & Approve│◀────│  4. Agent Analyzes  │
-│  (run rollback      │     │  Recommendations    │     │  & Correlates Data  │
-│   script)           │     │                     │     │                     │
-└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
-```
+![Investigation Flow](./docs/images/investigation-flow.png)
 
 > **Tip:** For detailed investigation prompts with specific metrics and starting points, see the "DevOps Agent Investigation Prompts" section under each [Fault Injection Scenario](#fault-injection-scenarios).
 
