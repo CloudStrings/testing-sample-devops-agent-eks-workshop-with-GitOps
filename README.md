@@ -670,20 +670,9 @@ helm version
    
    For detailed instructions, see [Manage user and group access to Amazon Managed Grafana workspaces](https://docs.aws.amazon.com/grafana/latest/userguide/AMG-manage-users-and-groups-AMG.html)
 
-### Terraform Deployment Options
+### Terraform Deployment
 
-The following options are available to deploy the application using Terraform:
-
-| Name                                   | Description                                                                                                 |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| [Amazon EKS (Full)](./terraform/eks/default/) | **Recommended for this lab.** Deploys the complete application to Amazon EKS with all AWS managed dependencies. |
-| [Amazon EKS (Minimal)](./terraform/eks/minimal/) | Lightweight deployment with in-cluster dependencies only. |
-
-### Deploy the Full EKS Version
-
-> **Important:** For this lab, we are using the **full EKS version**. Make sure to run Terraform from the `terraform/eks/default` directory.
-
-Navigate to the full EKS deployment directory:
+Navigate to the EKS deployment directory:
 
 ```bash
 cd terraform/eks/default
