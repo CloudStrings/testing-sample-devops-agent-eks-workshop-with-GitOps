@@ -58,25 +58,48 @@ git --version
 
 ### Clone the Repository
 
+> **First time using GitLab?** If you haven't set up SSH access for GitLab, follow the [GitLab SSH Configuration Guide](https://gitlab.pages.aws.dev/docs/Platform/ssh.html#ssh-config) first.
+
 ```bash
 # Clone the repository
+git clone git@ssh.gitlab.aws.dev:kulkshya/retail-app-automode.git
 git clone https://github.com/aws-samples/AmazonEKS-Devops-agent-sample.git
 
 # Navigate to the project directory
+cd retail-app-automode
+
+# Switch to the devops-agent-integration branch
+git checkout devops-agent-integration
 cd AmazonEKS-Devops-agent-sample
 ```
+
+> **Note:** If the above clone command fails, try using the alternative GitLab URL:
+> ```bash
+> git clone git@gitlab.aws.dev:kulkshya/retail-app-automode.git
+> ```
+
+> **🔧 Troubleshooting Git Clone Issues?** If you're encountering persistent issues with `git clone` (SSH key problems, network restrictions, etc.), you can download the repository as a ZIP file instead:
+> 1. Navigate to the repository in your browser: https://gitlab.aws.dev/kulkshya/retail-app-automode
+> 2. Click the **Download** button (or **Code** → **Download source code**)
+> 3. Select **Download ZIP** (or your preferred format)
+> 4. Extract the ZIP file to your desired location:
 
 > **🔧 Troubleshooting Git Clone Issues?** If you're encountering issues with `git clone`, you can download the repository as a ZIP file instead:
 > 1. Navigate to the repository in your browser: https://github.com/aws-samples/AmazonEKS-Devops-agent-sample
 > 2. Click the **Code** button → **Download ZIP**
 > 3. Extract the ZIP file to your desired location:
 >    ```bash
+>    unzip retail-app-automode-devops-agent-integration.zip
+>    cd retail-app-automode-devops-agent-integration
 >    unzip AmazonEKS-Devops-agent-sample-main.zip
 >    cd AmazonEKS-Devops-agent-sample-main
 >    ```
 
----
+**Branch Information:**
+- `main` - Stable release branch
+- `devops-agent-integration` - Contains DevOps Agent integration with fault injection scenarios and observability setup (recommended for this lab)
 
+---
 ## Lab Introduction & Goals
 
 This hands-on lab demonstrates how to deploy, operate, and troubleshoot a production-grade microservices application on Amazon EKS using the AWS DevOps Agent. You'll gain practical experience with real-world scenarios including fault injection, observability, and automated incident investigation.
