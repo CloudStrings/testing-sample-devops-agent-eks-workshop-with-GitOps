@@ -58,29 +58,21 @@ git --version
 
 ### Clone the Repository
 
-> **First time using GitLab?** If you haven't set up SSH access for GitLab, follow the [GitLab SSH Configuration Guide](https://gitlab.pages.aws.dev/docs/Platform/ssh.html#ssh-config) first.
-
 ```bash
 # Clone the repository
-git clone git@ssh.gitlab.aws.dev:kulkshya/retail-app-automode.git
+git clone https://github.com/aws-samples/AmazonEKS-Devops-agent-sample.git
 
 # Navigate to the project directory
-cd retail-app-automode
+cd AmazonEKS-Devops-agent-sample
 ```
 
-> **Note:** If the above clone command fails, try using the alternative GitLab URL:
-> ```bash
-> git clone git@gitlab.aws.dev:kulkshya/retail-app-automode.git
-> ```
-
-> **🔧 Troubleshooting Git Clone Issues?** If you're encountering persistent issues with `git clone` (SSH key problems, network restrictions, etc.), you can download the repository as a ZIP file instead:
-> 1. Navigate to: https://gitlab.aws.dev/kulkshya/retail-app-automode
-> 2. Click the **Download** button (or **Code** → **Download source code**)
-> 3. Select **Download ZIP**
-> 4. Extract and navigate:
+> **🔧 Troubleshooting Git Clone Issues?** If you're encountering issues with `git clone`, you can download the repository as a ZIP file instead:
+> 1. Navigate to the repository in your browser: https://github.com/aws-samples/AmazonEKS-Devops-agent-sample
+> 2. Click the **Code** button → **Download ZIP**
+> 3. Extract the ZIP file to your desired location:
 >    ```bash
->    unzip retail-app-automode-main.zip
->    cd retail-app-automode-main
+>    unzip AmazonEKS-Devops-agent-sample-main.zip
+>    cd AmazonEKS-Devops-agent-sample-main
 >    ```
 
 ---
@@ -105,8 +97,6 @@ This hands-on lab demonstrates how to deploy, operate, and troubleshoot a produc
 The Retail Store Sample App is a deliberately over-engineered e-commerce application designed to demonstrate microservices patterns and AWS service integrations:
 
 ![Architecture](./docs/images/architecture.png)
-
-> **Note:** The UI service uses a ClusterIP service type (not a public ALB). To access the application, use `kubectl port-forward svc/ui 8080:80 -n ui` and open http://localhost:8080 in your browser. This approach is intentional for lab/demo environments to avoid exposing the application publicly.
 
 ### Microservice Components
 
@@ -776,7 +766,7 @@ terraform apply -var="enable_grafana=true"
 3. Navigate to **Access** tab → **IAM access entries**
 4. Click **Create access entry**
 5. Configure the access entry:
-   - **IAM principal ARN:** Enter your IAM role ARN (e.g., your Isengard role ARN)
+   - **IAM principal ARN:** Enter your IAM role ARN (any IAM user or role with required permissions, or an admin user)
    - **Type:** Standard
 6. Click **Next**
 7. Add access policy:
@@ -845,123 +835,50 @@ kubectl get pods -A
 # Check all retail store services are running
 kubectl get pods -A | grep -E "carts|catalog|orders|checkout|ui"
 
-# Get the UI service URL
-kubectl get svc -n ui
+# Get the UI Ingress URL (ALB)
+kubectl get ingress -n ui
 ```
 
 ## Application Access (UI Service)
 
-> **Important:** The Retail Sample App UI is **not exposed publicly by default**. No public ALB or Ingress is created for the UI service. You must use `kubectl port-forward` to access the application from your local machine.
+The Retail Sample App UI is exposed via an AWS Application Load Balancer (ALB) created automatically by the AWS Load Balancer Controller.
 
-### Why Port-Forward?
+### Get the Application URL
 
-For security and cost reasons, the default deployment does not create a public-facing load balancer for the UI. This is intentional for a lab/demo environment. In production, you would configure an Ingress resource with appropriate authentication.
-
-### Access the Application from Your Laptop
-
-**Step 1: Configure kubectl**
+After deployment, get the ALB URL from Terraform output:
 
 ```bash
-# Update your kubeconfig to connect to the EKS cluster
-# Using Terraform outputs (recommended)
-aws eks update-kubeconfig \
-  --name $(terraform output -raw cluster_name) \
-  --region $(terraform output -raw region)
+# Get the application URL
+terraform output retail_app_url
 
-# Or manually specify your cluster name and region
-aws eks update-kubeconfig --name retail-store --region us-east-1
-
-# Verify you can connect to the cluster
-kubectl get nodes
+# Or get it directly from the Ingress resource
+kubectl get ingress -n ui ui
 ```
 
-**Step 2: Verify the UI Service is Running**
+The ALB URL will look like: `http://k8s-ui-ui-xxxxxxxxxx-xxxxxxxxxx.us-east-1.elb.amazonaws.com`
+
+> **Note:** It may take 2-3 minutes for the ALB to be provisioned and become healthy after deployment.
+
+### Verify Application Deployment
 
 ```bash
-# Check that UI pods are in Running state
-kubectl get pods -n ui
+# Check all retail store services are running
+kubectl get pods -A | grep -E "carts|catalog|orders|checkout|ui"
 
-# Expected output:
-# NAME                  READY   STATUS    RESTARTS   AGE
-# ui-xxxxxxxxxx-xxxxx   1/1     Running   0          10m
+# Check the UI Ingress status
+kubectl get ingress -n ui
 
-# Verify the service exists and has endpoints
-kubectl get svc -n ui
-kubectl get endpoints ui -n ui
+# Verify the ALB target group is healthy
+kubectl describe ingress ui -n ui
 ```
 
-**Step 3: Port-Forward to the UI Service**
-
-```bash
-# Forward local port 8080 to the UI service port 80
-kubectl port-forward svc/ui 8080:80 -n ui
-```
-
-**Step 4: Open the Application**
-
-Open your browser and navigate to: **http://localhost:8080**
-
-You should see the Retail Store home page with product listings.
-
-### Alternative: Port-Forward to a Specific Pod
-
-If you need to connect to a specific UI pod (useful for debugging):
-
-```bash
-# Get the pod name
-kubectl get pods -n ui -o name
-
-# Port-forward to the specific pod
-kubectl port-forward pod/ui-xxxxxxxxxx-xxxxx 8080:8080 -n ui
-```
-
-### Keeping the Connection Active
-
-> **Note:** The `kubectl port-forward` command must remain running in your terminal. If you close the terminal or press Ctrl+C, the connection will be terminated.
-
-**Tips for long-running sessions:**
-```bash
-# Run in background (output to file)
-kubectl port-forward svc/ui 8080:80 -n ui > /tmp/port-forward.log 2>&1 &
-
-# Or use a separate terminal/tmux session
-tmux new-session -d -s port-forward 'kubectl port-forward svc/ui 8080:80 -n ui'
-```
-
-### Troubleshooting Port-Forward Issues
-
-```bash
-# Check if the UI pods are running
-kubectl get pods -n ui
-
-# Check if the service has endpoints (should show pod IPs)
-kubectl get endpoints ui -n ui
-
-# Check pod logs for errors
-kubectl logs -n ui -l app.kubernetes.io/name=ui --tail=50
-
-# Test connectivity from within the cluster
-kubectl exec -n ui deploy/ui -- curl -s localhost:8080/actuator/health
-
-# Try a different local port if 8080 is already in use
-kubectl port-forward svc/ui 9090:80 -n ui
-
-# Use verbose mode for debugging connection issues
-kubectl port-forward svc/ui 8080:80 -n ui -v=6
-
-# Check for network policies that might block traffic
-kubectl get networkpolicies -n ui
-```
-
-### Common Issues and Solutions
+### Troubleshooting
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| `error: unable to forward port` | Pod not ready | Wait for pod to be in Running state |
-| `bind: address already in use` | Port 8080 in use | Use a different local port (e.g., 9090) |
-| `connection refused` | Service has no endpoints | Check pod status and logs |
-| `timeout` | Network/firewall issue | Check VPN, firewall, or security groups |
-| `unauthorized` | kubectl not configured | Run `aws eks update-kubeconfig` again |
+| ALB URL returns 503 | Target group unhealthy | Check pod health: `kubectl get pods -n ui` |
+| ALB not provisioned | AWS LB Controller issue | Check controller logs: `kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller` |
+| Ingress has no address | ALB still provisioning | Wait 2-3 minutes and check again |
 
 ## AWS DevOps Agent Integration
 

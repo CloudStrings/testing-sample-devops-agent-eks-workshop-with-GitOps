@@ -226,6 +226,8 @@ resource "helm_release" "ui" {
       opentelemetry_instrumentation  = local.opentelemetry_instrumentation
       application_signals_enabled    = var.application_signals_enabled
       istio_enabled                  = var.istio_enabled
+      alb_logs_bucket                = aws_s3_bucket.alb_logs.id
+      cluster_name                   = local.cluster_name
     })
   ]
 }

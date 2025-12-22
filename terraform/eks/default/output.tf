@@ -14,9 +14,14 @@ output "region" {
 }
 
 output "retail_app_url" {
-  description = "URL to access the retail store application"
+  description = "URL to access the retail store application via ALB"
   value = try(
-    "http://${data.kubernetes_service.ui_service.status[0].load_balancer[0].ingress[0].hostname}",
-    "LoadBalancer provisioning - run: kubectl get svc -n ui ui"
+    "http://${data.kubernetes_ingress_v1.ui_ingress.status[0].load_balancer[0].ingress[0].hostname}",
+    "ALB provisioning - run: kubectl get ingress -n ui ui"
   )
+}
+
+output "alb_logs_bucket" {
+  description = "S3 bucket for ALB access logs"
+  value       = aws_s3_bucket.alb_logs.id
 }

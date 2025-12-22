@@ -34,7 +34,19 @@ istio:
   hosts:
   - "*"
 %{ else }
-# Use ClusterIP for internal access via kubectl port-forward
+# Use Ingress with AWS ALB for public access
 service:
   type: ClusterIP
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health/liveness
+    # ALB access logs
+    alb.ingress.kubernetes.io/load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=${alb_logs_bucket},access_logs.s3.prefix=ui-alb
+    # ALB tags for DevOps Agent discovery
+    alb.ingress.kubernetes.io/tags: devopsagent=true,environment-name=${cluster_name},created-by=retail-store-sample-app
 %{ endif }

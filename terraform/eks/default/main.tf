@@ -13,6 +13,57 @@ module "tags" {
   environment_name = local.cluster_name
 }
 
+# S3 bucket for ALB access logs
+resource "aws_s3_bucket" "alb_logs" {
+  bucket_prefix = "${local.cluster_name}-alb-logs-"
+  force_destroy = true
+
+  tags = merge(module.tags.result, {
+    Name = "${local.cluster_name}-alb-logs"
+  })
+}
+
+resource "aws_s3_bucket_policy" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_elb_service_account.main.id}:root"
+        }
+        Action   = "s3:PutObject"
+        Resource = "${aws_s3_bucket.alb_logs.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "delivery.logs.amazonaws.com"
+        }
+        Action   = "s3:PutObject"
+        Resource = "${aws_s3_bucket.alb_logs.arn}/*"
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl" = "bucket-owner-full-control"
+          }
+        }
+      },
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "delivery.logs.amazonaws.com"
+        }
+        Action   = "s3:GetBucketAcl"
+        Resource = aws_s3_bucket.alb_logs.arn
+      }
+    ]
+  })
+}
+
+data "aws_elb_service_account" "main" {}
+
 module "vpc" {
   source = "../../lib/vpc"
 

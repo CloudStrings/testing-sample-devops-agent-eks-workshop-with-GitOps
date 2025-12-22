@@ -14,7 +14,7 @@ data "aws_eks_cluster_auth" "cluster" {
   ]
 }
 
-data "kubernetes_service" "ui_service" {
+data "kubernetes_ingress_v1" "ui_ingress" {
   depends_on = [helm_release.ui]
 
   metadata {
