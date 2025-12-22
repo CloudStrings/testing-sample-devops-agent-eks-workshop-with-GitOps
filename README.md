@@ -1370,10 +1370,16 @@ This repository includes fault injection scripts for simulating production-like 
 
 ### Setup
 
+Navigate to the fault injection directory:
+
+```bash
+cd fault-injection
+```
+
 Make all fault injection scripts executable:
 
 ```bash
-chmod +x fault-injection/*.sh
+chmod +x *.sh
 ```
 
 ### Available Scenarios
@@ -1413,14 +1419,14 @@ Simulates high latency in the Catalog microservice by adding a sidecar that inje
 **Run the scenario:**
 ```bash
 # Inject the fault
-./fault-injection/inject-catalog-latency.sh
+./inject-catalog-latency.sh
 
 # Verify injection
 kubectl get pods -n catalog
 kubectl logs -n catalog -l app.kubernetes.io/name=catalog -c latency-injector
 
 # Rollback
-./fault-injection/rollback-catalog.sh
+./rollback-catalog.sh
 ```
 
 **DevOps Agent Investigation Prompts:**
@@ -1460,7 +1466,7 @@ Creates heavy load on the PostgreSQL RDS instance to simulate database performan
 **Run the scenario:**
 ```bash
 # Inject the fault
-./fault-injection/inject-rds-stress.sh
+./inject-rds-stress.sh
 
 # Monitor stress pod
 kubectl logs -f rds-stress-test -n orders
@@ -1469,7 +1475,7 @@ kubectl logs -f rds-stress-test -n orders
 # AWS Console > RDS > Performance Insights > retail-store-orders-one
 
 # Rollback
-./fault-injection/rollback-rds-stress.sh
+./rollback-rds-stress.sh
 ```
 
 **DevOps Agent Investigation Prompts:**
@@ -1509,7 +1515,7 @@ Blocks network traffic from UI service to Cart service using Kubernetes NetworkP
 **Run the scenario:**
 ```bash
 # Inject the fault
-./fault-injection/inject-network-partition.sh
+./inject-network-partition.sh
 
 # Test partition (from UI namespace - should timeout)
 kubectl run test-from-ui --rm -it --image=curlimages/curl --restart=Never --namespace=ui -- curl -s --max-time 5 http://carts.carts.svc.cluster.local/carts
@@ -1518,7 +1524,7 @@ kubectl run test-from-ui --rm -it --image=curlimages/curl --restart=Never --name
 kubectl run test-from-default --rm -it --image=curlimages/curl --restart=Never -- curl -s --max-time 5 http://carts.carts.svc.cluster.local/carts
 
 # Rollback
-./fault-injection/rollback-network-partition.sh
+./rollback-network-partition.sh
 ```
 
 **DevOps Agent Investigation Prompts:**
@@ -1559,10 +1565,10 @@ Simulates an accidental security group change that blocks EKS nodes from connect
 **Run the scenario:**
 ```bash
 # Inject the fault (auto-discovers and blocks all RDS instances)
-./fault-injection/inject-rds-sg-block.sh
+./inject-rds-sg-block.sh
 
 # Rollback (restores all revoked rules)
-./fault-injection/rollback-rds-sg-block.sh
+./rollback-rds-sg-block.sh
 ```
 
 **Check application logs for errors:**
@@ -1625,7 +1631,7 @@ Simulates a memory leak in the Cart service causing OOMKill and pod restarts.
 **Run the scenario:**
 ```bash
 # Inject the fault
-./fault-injection/inject-cart-memory-leak.sh
+./inject-cart-memory-leak.sh
 
 # Monitor pods (watch for restarts)
 watch kubectl get pods -n carts
@@ -1637,7 +1643,7 @@ kubectl logs -n carts -l app.kubernetes.io/name=carts -c memory-leaker -f
 kubectl describe pod -n carts -l app.kubernetes.io/name=carts | grep -A5 'Last State'
 
 # Rollback
-./fault-injection/rollback-cart-memory-leak.sh
+./rollback-cart-memory-leak.sh
 ```
 
 **DevOps Agent Investigation Prompts:**
@@ -1675,7 +1681,7 @@ Adds artificial network latency to DynamoDB calls from the Cart service.
 **Run the scenario:**
 ```bash
 # Inject the fault
-./fault-injection/inject-dynamodb-latency.sh
+./inject-dynamodb-latency.sh
 
 # Monitor latency injection
 kubectl logs -n carts -l app.kubernetes.io/name=carts -c dynamodb-latency-injector
@@ -1684,7 +1690,7 @@ kubectl logs -n carts -l app.kubernetes.io/name=carts -c dynamodb-latency-inject
 # AWS Console > CloudWatch > DynamoDB metrics
 
 # Rollback
-./fault-injection/rollback-dynamodb-latency.sh
+./rollback-dynamodb-latency.sh
 ```
 
 **DevOps Agent Investigation Prompts:**
