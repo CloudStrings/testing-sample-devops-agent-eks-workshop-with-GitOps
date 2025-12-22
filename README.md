@@ -1519,36 +1519,48 @@ Blocks network traffic from UI service to Cart service using Kubernetes NetworkP
 
 **What it does:**
 - Applies NetworkPolicy blocking ingress to Cart pods from UI namespace
-- Other services can still communicate with Cart
+- Other services (checkout, orders) can still communicate with Cart
 
 **Expected behavior after injection:**
 - Pods will NOT restart (this is a network-level block, not a pod change)
 - Product browsing will work normally (UI → Catalog is unaffected)
-- "Add to Cart" button will hang for ~30 seconds then fail
-- Cart page will show empty or fail to load
-- Checkout will be completely broken (cannot access cart items)
-- Users will see timeout errors when interacting with cart functionality
+- "Add to Cart" button clicks will timeout immediately (connection refused/timeout)
+- Cart page will fail to load or show empty
+- Checkout will be broken (cannot access cart items)
+- Connectivity test from UI pod to carts service returns HTTP 000 (timeout)
+- Connectivity from other namespaces (checkout) to carts still works (HTTP 404 = cart not found, which is expected)
 
 **Expected symptoms in monitoring:**
 - UI page loads normally (catalog works fine)
-- Add to cart / checkout fails with timeout (30+ seconds)
-- Connection timeout errors in UI pod logs (`java.net.SocketTimeoutException`)
-- Increased error rate in UI service metrics
-- Network flow logs show blocked traffic from UI to Carts namespace
+- Add to cart operations fail with immediate timeout
+- Connection errors in UI pod logs when accessing cart functionality
+- Network flow logs show blocked traffic from UI namespace to Carts namespace
+- Other services (checkout) can still reach carts service
+
+**Verification during injection:**
+```
+Testing connectivity from UI to Carts (should FAIL):
+  ✓ Connection blocked as expected (timeout/HTTP 000)
+
+Testing connectivity from Checkout to Carts (should WORK):
+  ✓ Connection successful (HTTP 404 = cart not found, expected)
+```
 
 **Run the scenario:**
 ```bash
 # Inject the fault
-./inject-network-partition.sh
+./fault-injection/inject-network-partition.sh
 
 # Test partition (from UI namespace - should timeout)
-kubectl run test-from-ui --rm -it --image=curlimages/curl --restart=Never --namespace=ui -- curl -s --max-time 5 http://carts.carts.svc.cluster.local/carts
+kubectl exec -n ui $(kubectl get pod -n ui -l app.kubernetes.io/name=ui -o name | head -1) -- \
+  curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://carts.carts.svc.cluster.local/carts
 
-# Test from another namespace (should work)
-kubectl run test-from-default --rm -it --image=curlimages/curl --restart=Never -- curl -s --max-time 5 http://carts.carts.svc.cluster.local/carts
+# Test from checkout namespace (should work - returns 404 for empty cart)
+kubectl exec -n checkout $(kubectl get pod -n checkout -l app.kubernetes.io/name=checkout -o name | head -1) -- \
+  curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://carts.carts.svc.cluster.local/carts
 
 # Rollback
-./rollback-network-partition.sh
+./fault-injection/rollback-network-partition.sh
 ```
 
 **DevOps Agent Investigation Prompts:**
