@@ -1288,7 +1288,7 @@ After injecting a fault using the scripts in the [Fault Injection Scenarios](#fa
 | [Network Partition](#3-network-partition-ui--cart) | "Users can browse products fine but Add to Cart is broken. Getting timeout errors." | "Check connectivity between the UI service and the carts service. Look for network policies or blocked traffic." |
 | [RDS Security Group Block](#4-rds-security-group-misconfiguration) | "Orders and checkout are completely down. Getting 500 errors. RDS shows healthy but apps can't connect." | "Check the RDS security groups and VPC flow logs. The database is up but something is blocking connections." |
 | [Cart Memory Leak](#5-cart-memory-leak) | "Cart service pods keep restarting every few minutes. Users are seeing intermittent failures." | "Check the carts namespace for pod restarts and OOMKilled events. Look at memory usage patterns." |
-| [DynamoDB Stress Test](#6-dynamodb-stress-test) | "Adding items to cart is failing intermittently. Getting throttling errors and timeouts." | "Check DynamoDB metrics for the carts table. Look at consumed capacity and throttling." |
+| [DynamoDB Stress Test](#6-dynamodb-stress-test) | "Cart operations are slow and timing out. Users complaining about sluggish cart experience." | "Check DynamoDB metrics for the carts table. Look at consumed read capacity and throttling." |
 
 **Investigation Flow:**
 
@@ -1392,7 +1392,7 @@ chmod +x *.sh
 | [Network Partition](#3-network-partition-ui--cart) | `inject-network-partition.sh` | `rollback-network-partition.sh` | Blocks traffic between UI and Cart services |
 | [RDS Security Group Block](#4-rds-security-group-misconfiguration) | `inject-rds-sg-block.sh` | `rollback-rds-sg-block.sh` | Simulates accidental SG misconfiguration |
 | [Cart Memory Leak](#5-cart-memory-leak) | `inject-cart-memory-leak.sh` | `rollback-cart-memory-leak.sh` | Causes OOMKill and CrashLoopBackOff |
-| [DynamoDB Stress Test](#6-dynamodb-stress-test) | `inject-dynamodb-stress.sh` | `rollback-dynamodb-stress.sh` | Hammers DynamoDB with massive read/write requests |
+| [DynamoDB Stress Test](#6-dynamodb-stress-test) | `inject-dynamodb-stress.sh` | `rollback-dynamodb-stress.sh` | Hammers DynamoDB with read requests (instant rollback) |
 
 ---
 
@@ -1667,28 +1667,25 @@ kubectl describe pod -n carts -l app.kubernetes.io/name=carts | grep -A5 'Last S
 
 ### 6. DynamoDB Stress Test
 
-Deploys a stress pod that hammers DynamoDB with massive read/write requests, causing throttling and performance degradation.
+Deploys a stress pod that hammers DynamoDB with massive read requests, causing throttling and performance degradation for the Cart service.
 
 **What it does:**
 - Deploys a Python stress test pod in the carts namespace
-- Runs 20 concurrent write workers and 20 scan workers
-- Writes 2KB items continuously to the carts table
-- Performs full table scans repeatedly
+- Runs 30 scan workers, 30 query workers, and 40 get workers (100 total)
+- Performs full table scans, GSI queries, and GetItem requests continuously
+- Read-only - no data is written, so rollback is instant
 
 **Expected behavior after injection:**
-- DynamoDB will start throttling requests
-- Cart service operations will fail intermittently
-- "Add to Cart" will timeout or fail
-- Viewing cart will be slow or return errors
-- Checkout process will experience failures
+- DynamoDB will start throttling read requests
+- Cart service operations will slow down or fail
+- "Add to Cart" and "View Cart" will be slow or timeout
 - Stress pod logs will show "THROTTLED" messages
 
 **Expected symptoms in monitoring:**
-- DynamoDB `ThrottledRequests` metric spikes
-- `ConsumedReadCapacityUnits` and `ConsumedWriteCapacityUnits` spike
-- Cart service error rates increase
-- Application timeouts and 500 errors
-- Pod logs showing DynamoDB throttling exceptions
+- DynamoDB `ThrottledRequests` and `ReadThrottleEvents` metrics spike
+- `ConsumedReadCapacityUnits` spikes significantly
+- Cart service latency increases
+- Application timeouts and slow responses
 
 **Run the scenario:**
 ```bash
@@ -1701,15 +1698,15 @@ kubectl logs -f dynamodb-stress-test -n carts
 # Check CloudWatch DynamoDB metrics
 # AWS Console > CloudWatch > DynamoDB metrics > ThrottledRequests
 
-# Rollback (also cleans up stress data)
+# Rollback (instant - no data cleanup needed)
 ./fault-injection/rollback-dynamodb-stress.sh
 ```
 
 **DevOps Agent Investigation Prompts:**
 
-> **Investigation Details:** "Adding items to cart is failing intermittently. Getting throttling errors and timeouts. Some requests work but many fail."
+> **Investigation Details:** "Cart operations are slow and sometimes timing out. Users complaining about sluggish cart experience."
 
-> **Investigation Starting Point:** "Check DynamoDB metrics for the carts table. Look at consumed capacity, throttling, and any unusual write patterns."
+> **Investigation Starting Point:** "Check DynamoDB metrics for the carts table. Look at consumed read capacity and throttling events."
 
 ---
 

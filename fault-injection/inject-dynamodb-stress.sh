@@ -1,6 +1,7 @@
 #!/bin/bash
-# DynamoDB Stress Test Injection
-# Deploys a stress pod that hammers DynamoDB with massive read/write requests
+# DynamoDB Stress Test Injection (Read-Only)
+# Deploys a stress pod that hammers DynamoDB with massive read requests
+# No data is written, so rollback is instant (just delete the pod)
 
 set -e
 
@@ -8,7 +9,7 @@ NAMESPACE="carts"
 TABLE_NAME="retail-store-carts"
 REGION="${AWS_REGION:-us-east-1}"
 
-echo "=== DynamoDB Stress Test Injection ==="
+echo "=== DynamoDB Stress Test Injection (Read-Only) ==="
 echo ""
 echo "Target Table: $TABLE_NAME"
 echo "Region: $REGION"
@@ -36,8 +37,6 @@ data:
     import boto3
     import threading
     import time
-    import random
-    import string
     import os
     from concurrent.futures import ThreadPoolExecutor
 
@@ -47,64 +46,80 @@ data:
     dynamodb = boto3.resource('dynamodb', region_name=REGION)
     table = dynamodb.Table(TABLE_NAME)
 
-    write_count = 0
     scan_count = 0
+    query_count = 0
+    get_count = 0
     lock = threading.Lock()
 
-    def generate_payload(size=2000):
-        return ''.join(random.choices(string.ascii_letters + string.digits, k=size))
-
-    def write_worker(worker_id):
-        global write_count
-        payload = generate_payload()
-        counter = 0
-        while True:
-            try:
-                item_id = f"stress-{worker_id}-{counter}"
-                table.put_item(Item={
-                    'id': item_id,
-                    'data': payload,
-                    'items': [],
-                    'timestamp': int(time.time())
-                })
-                counter += 1
-                with lock:
-                    write_count += 1
-                    if write_count % 500 == 0:
-                        print(f"Total writes: {write_count}", flush=True)
-            except Exception as e:
-                if 'Throttl' in str(e):
-                    print(f"THROTTLED on write! {e}", flush=True)
-                time.sleep(0.01)
-
     def scan_worker(worker_id):
+        """Full table scans - very expensive on read capacity"""
         global scan_count
         while True:
             try:
+                # Full table scan with large limit
                 response = table.scan(Limit=1000)
                 with lock:
                     scan_count += 1
-                    if scan_count % 100 == 0:
-                        print(f"Total scans: {scan_count}", flush=True)
+                    if scan_count % 50 == 0:
+                        print(f"Scans: {scan_count}", flush=True)
             except Exception as e:
-                if 'Throttl' in str(e):
+                if 'Throttl' in str(e) or 'ProvisionedThroughputExceeded' in str(e):
                     print(f"THROTTLED on scan! {e}", flush=True)
-                time.sleep(0.01)
+            time.sleep(0.01)
 
-    print("=== DynamoDB Stress Test ===")
+    def query_worker(worker_id):
+        """Query on GSI - consumes read capacity"""
+        global query_count
+        while True:
+            try:
+                # Query the customerId GSI with a fake customer ID
+                response = table.query(
+                    IndexName='idx_global_customerId',
+                    KeyConditionExpression='customerId = :cid',
+                    ExpressionAttributeValues={':cid': f'stress-customer-{worker_id}'}
+                )
+                with lock:
+                    query_count += 1
+                    if query_count % 100 == 0:
+                        print(f"Queries: {query_count}", flush=True)
+            except Exception as e:
+                if 'Throttl' in str(e) or 'ProvisionedThroughputExceeded' in str(e):
+                    print(f"THROTTLED on query! {e}", flush=True)
+            time.sleep(0.005)
+
+    def get_worker(worker_id):
+        """GetItem requests - fast but still consume capacity"""
+        global get_count
+        while True:
+            try:
+                # Try to get non-existent items (still consumes RCU)
+                response = table.get_item(Key={'id': f'stress-nonexistent-{worker_id}-{get_count}'})
+                with lock:
+                    get_count += 1
+                    if get_count % 500 == 0:
+                        print(f"Gets: {get_count}", flush=True)
+            except Exception as e:
+                if 'Throttl' in str(e) or 'ProvisionedThroughputExceeded' in str(e):
+                    print(f"THROTTLED on get! {e}", flush=True)
+            time.sleep(0.001)
+
+    print("=== DynamoDB Read-Only Stress Test ===")
     print(f"Table: {TABLE_NAME}")
     print(f"Region: {REGION}")
-    print("Starting 20 write workers and 20 scan workers...")
+    print("Starting 30 scan workers, 30 query workers, 40 get workers...")
+    print("NOTE: Read-only - no cleanup needed on rollback!")
     print("")
 
-    with ThreadPoolExecutor(max_workers=40) as executor:
-        for i in range(20):
-            executor.submit(write_worker, i)
-        for i in range(20):
+    with ThreadPoolExecutor(max_workers=100) as executor:
+        for i in range(30):
             executor.submit(scan_worker, i)
+        for i in range(30):
+            executor.submit(query_worker, i)
+        for i in range(40):
+            executor.submit(get_worker, i)
         while True:
-            time.sleep(60)
-            print(f"Status: {write_count} writes, {scan_count} scans", flush=True)
+            time.sleep(30)
+            print(f"Status: {scan_count} scans, {query_count} queries, {get_count} gets", flush=True)
 CONFIGMAP_EOF
 
 # Step 3: Create stress pod
@@ -152,15 +167,15 @@ kubectl wait --for=condition=Ready pod/dynamodb-stress-test -n $NAMESPACE --time
 sleep 5
 
 echo ""
-echo "=== DynamoDB Stress Test Active ==="
+echo "=== DynamoDB Stress Test Active (Read-Only) ==="
 echo ""
 echo "Monitor stress pod:"
 echo "  kubectl logs -f dynamodb-stress-test -n $NAMESPACE"
 echo ""
 echo "CloudWatch metrics to check:"
-echo "  - ConsumedReadCapacityUnits"
-echo "  - ConsumedWriteCapacityUnits"  
+echo "  - ConsumedReadCapacityUnits (will spike)"
 echo "  - ThrottledRequests"
+echo "  - ReadThrottleEvents"
 echo ""
-echo "Rollback:"
+echo "Rollback (instant - no data cleanup needed):"
 echo "  ./fault-injection/rollback-dynamodb-stress.sh"
