@@ -31,7 +31,8 @@
   - [Network Partition (UI → Cart)](#3-network-partition-ui--cart)
   - [RDS Security Group Block](#4-rds-security-group-misconfiguration)
   - [Cart Memory Leak](#5-cart-memory-leak)
-  - [DynamoDB Latency](#6-dynamodb-latency)
+  - [DynamoDB Stress Test](#6-dynamodb-stress-test)
+  - [Kubernetes API Server Stress](#7-kubernetes-api-server-stress)
 - [Cleanup](#cleanup)
 
 ---
@@ -1287,7 +1288,7 @@ After injecting a fault using the scripts in the [Fault Injection Scenarios](#fa
 | [Network Partition](#3-network-partition-ui--cart) | "Users can browse products fine but Add to Cart is broken. Getting timeout errors." | "Check connectivity between the UI service and the carts service. Look for network policies or blocked traffic." |
 | [RDS Security Group Block](#4-rds-security-group-misconfiguration) | "Orders and checkout are completely down. Getting 500 errors. RDS shows healthy but apps can't connect." | "Check the RDS security groups and VPC flow logs. The database is up but something is blocking connections." |
 | [Cart Memory Leak](#5-cart-memory-leak) | "Cart service pods keep restarting every few minutes. Users are seeing intermittent failures." | "Check the carts namespace for pod restarts and OOMKilled events. Look at memory usage patterns." |
-| [DynamoDB Latency](#6-dynamodb-latency) | "Adding items to cart is super slow. Used to be instant but now takes 3-5 seconds." | "Check DynamoDB metrics for the carts table. Look at latency and any throttling." |
+| [DynamoDB Stress Test](#6-dynamodb-stress-test) | "Adding items to cart is failing intermittently. Getting throttling errors and timeouts." | "Check DynamoDB metrics for the carts table. Look at consumed capacity and throttling." |
 
 **Investigation Flow:**
 
@@ -1391,7 +1392,7 @@ chmod +x *.sh
 | [Network Partition](#3-network-partition-ui--cart) | `inject-network-partition.sh` | `rollback-network-partition.sh` | Blocks traffic between UI and Cart services |
 | [RDS Security Group Block](#4-rds-security-group-misconfiguration) | `inject-rds-sg-block.sh` | `rollback-rds-sg-block.sh` | Simulates accidental SG misconfiguration |
 | [Cart Memory Leak](#5-cart-memory-leak) | `inject-cart-memory-leak.sh` | `rollback-cart-memory-leak.sh` | Causes OOMKill and CrashLoopBackOff |
-| [DynamoDB Latency](#6-dynamodb-latency) | `inject-dynamodb-latency.sh` | `rollback-dynamodb-latency.sh` | Adds 500ms latency to DynamoDB calls |
+| [DynamoDB Stress Test](#6-dynamodb-stress-test) | `inject-dynamodb-stress.sh` | `rollback-dynamodb-stress.sh` | Hammers DynamoDB with massive read/write requests |
 
 ---
 
@@ -1664,50 +1665,51 @@ kubectl describe pod -n carts -l app.kubernetes.io/name=carts | grep -A5 'Last S
 
 ---
 
-### 6. DynamoDB Latency
+### 6. DynamoDB Stress Test
 
-Adds artificial network latency to DynamoDB calls from the Cart service.
+Deploys a stress pod that hammers DynamoDB with massive read/write requests, causing throttling and performance degradation.
 
 **What it does:**
-- Adds sidecar with `tc qdisc netem` to inject 500ms ± 50ms latency
-- Affects all Cart service outbound traffic
+- Deploys a Python stress test pod in the carts namespace
+- Runs 20 concurrent write workers and 20 scan workers
+- Writes 2KB items continuously to the carts table
+- Performs full table scans repeatedly
 
 **Expected behavior after injection:**
-- Cart pods will restart with the new configuration (latency sidecar added)
-- All cart operations will become noticeably slow (500ms+ added to each operation)
-- "Add to Cart" will take 2-3 seconds instead of <500ms
-- Viewing cart will be slow
-- Checkout process will be sluggish (multiple DynamoDB calls)
-- Under load, requests may start timing out
-- Users will experience frustrating delays but service remains functional
+- DynamoDB will start throttling requests
+- Cart service operations will fail intermittently
+- "Add to Cart" will timeout or fail
+- Viewing cart will be slow or return errors
+- Checkout process will experience failures
+- Stress pod logs will show "THROTTLED" messages
 
 **Expected symptoms in monitoring:**
-- Cart operations slow (add to cart, view cart taking 2-5 seconds)
-- DynamoDB latency increase in CloudWatch (`SuccessfulRequestLatency` metric)
-- Application timeouts during checkout under heavy load
-- Thread queuing in Cart service (increased thread pool usage)
-- p99 latency spikes in Prometheus (500ms+ increase)
+- DynamoDB `ThrottledRequests` metric spikes
+- `ConsumedReadCapacityUnits` and `ConsumedWriteCapacityUnits` spike
+- Cart service error rates increase
+- Application timeouts and 500 errors
+- Pod logs showing DynamoDB throttling exceptions
 
 **Run the scenario:**
 ```bash
 # Inject the fault
-./inject-dynamodb-latency.sh
+./fault-injection/inject-dynamodb-stress.sh
 
-# Monitor latency injection
-kubectl logs -n carts -l app.kubernetes.io/name=carts -c dynamodb-latency-injector
+# Monitor stress pod
+kubectl logs -f dynamodb-stress-test -n carts
 
 # Check CloudWatch DynamoDB metrics
-# AWS Console > CloudWatch > DynamoDB metrics
+# AWS Console > CloudWatch > DynamoDB metrics > ThrottledRequests
 
-# Rollback
-./rollback-dynamodb-latency.sh
+# Rollback (also cleans up stress data)
+./fault-injection/rollback-dynamodb-stress.sh
 ```
 
 **DevOps Agent Investigation Prompts:**
 
-> **Investigation Details:** "Adding items to cart is super slow. Used to be instant but now takes 3-5 seconds. Checkout is also sluggish."
+> **Investigation Details:** "Adding items to cart is failing intermittently. Getting throttling errors and timeouts. Some requests work but many fail."
 
-> **Investigation Starting Point:** "Check DynamoDB metrics for the carts table. Look at latency and any throttling. Also check the cart service pods."
+> **Investigation Starting Point:** "Check DynamoDB metrics for the carts table. Look at consumed capacity, throttling, and any unusual write patterns."
 
 ---
 
