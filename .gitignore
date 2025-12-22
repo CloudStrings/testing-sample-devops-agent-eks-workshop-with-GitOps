@@ -31,3 +31,7 @@ devenv.local.nix
 .direnv
 
 .pre-commit-config.yaml
+
+# Fault injection runtime artifacts
+fault-injection/rds-sg-ids.json
+fault-injection/rds-sg-backup.json
