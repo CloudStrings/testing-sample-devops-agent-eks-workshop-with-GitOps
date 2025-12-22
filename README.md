@@ -32,7 +32,6 @@
   - [RDS Security Group Block](#4-rds-security-group-misconfiguration)
   - [Cart Memory Leak](#5-cart-memory-leak)
   - [DynamoDB Stress Test](#6-dynamodb-stress-test)
-  - [Kubernetes API Server Stress](#7-kubernetes-api-server-stress)
 - [Cleanup](#cleanup)
 
 ---
@@ -1157,12 +1156,6 @@ The **Topology** view provides a visual map of your system components and their 
 1. Open your Agent Space in the AWS Console
 2. Click the **Topology** tab
 3. View the automatically discovered resources and relationships
-
-#### What the Topology Shows
-
-The topology graph displays:
-
-![DevOps Agent Topology View](./docs/images/devops-topology.png)
 
 #### Understanding Relationships
 
