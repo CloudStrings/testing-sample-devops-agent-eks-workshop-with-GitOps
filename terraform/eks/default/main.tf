@@ -56,7 +56,7 @@ module "retail_app_eks" {
   }
 
   environment_name      = local.cluster_name
-  cluster_version       = "1.33"
+  cluster_version       = "1.34"
   vpc_id                = module.vpc.inner.vpc_id
   vpc_cidr              = module.vpc.inner.vpc_cidr_block
   subnet_ids            = module.vpc.inner.private_subnets

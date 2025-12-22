@@ -135,7 +135,7 @@ The services communicate using synchronous HTTP REST calls within the Kubernetes
 The Terraform modules in this repository provision the following AWS resources:
 
 **Compute & Orchestration:**
-- **Amazon EKS** (v1.33) - Kubernetes cluster with EKS Auto Mode enabled
+- **Amazon EKS** (v1.34) - Kubernetes cluster with EKS Auto Mode enabled
   - General-purpose and system node pools
   - Network Policy Controller enabled
   - All control plane logging (API, audit, authenticator, controller manager, scheduler)
@@ -683,7 +683,7 @@ cd terraform/eks/default
 When you run `terraform apply`, the following resources will be provisioned:
 
 **EKS Cluster & Compute:**
-- Amazon EKS cluster (v1.33) with EKS Auto Mode enabled
+- Amazon EKS cluster (v1.34) with EKS Auto Mode enabled
 - IAM roles for cluster and node management
 - EKS managed add-ons (metrics-server, kube-state-metrics, prometheus-node-exporter, etc.)
 

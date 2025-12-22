@@ -42,6 +42,7 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_observability_xray" {
 resource "aws_eks_addon" "kube_state_metrics" {
   cluster_name                = module.eks_cluster.cluster_name
   addon_name                  = "kube-state-metrics"
+  most_recent                 = true
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -54,6 +55,7 @@ resource "aws_eks_addon" "kube_state_metrics" {
 resource "aws_eks_addon" "prometheus_node_exporter" {
   cluster_name                = module.eks_cluster.cluster_name
   addon_name                  = "prometheus-node-exporter"
+  most_recent                 = true
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -66,6 +68,7 @@ resource "aws_eks_addon" "prometheus_node_exporter" {
 resource "aws_eks_addon" "efs_csi_driver" {
   cluster_name                = module.eks_cluster.cluster_name
   addon_name                  = "aws-efs-csi-driver"
+  most_recent                 = true
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -78,6 +81,7 @@ resource "aws_eks_addon" "efs_csi_driver" {
 resource "aws_eks_addon" "secrets_store_csi_driver" {
   cluster_name                = module.eks_cluster.cluster_name
   addon_name                  = "aws-secrets-store-csi-driver-provider"
+  most_recent                 = true
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -93,7 +97,7 @@ resource "aws_eks_addon" "secrets_store_csi_driver" {
 resource "aws_eks_addon" "cloudwatch_observability" {
   cluster_name                = module.eks_cluster.cluster_name
   addon_name                  = "amazon-cloudwatch-observability"
-  addon_version               = "v4.7.0-eksbuild.1"
+  most_recent                 = true
   service_account_role_arn    = aws_iam_role.cloudwatch_observability.arn
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
@@ -217,6 +221,7 @@ resource "aws_iam_role_policy" "network_flow_monitoring" {
 resource "aws_eks_addon" "network_flow_monitoring" {
   cluster_name                = module.eks_cluster.cluster_name
   addon_name                  = "aws-network-flow-monitoring-agent"
+  most_recent                 = true
   service_account_role_arn    = aws_iam_role.network_flow_monitoring.arn
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
