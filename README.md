@@ -100,7 +100,21 @@ This hands-on lab demonstrates how to deploy, operate, and troubleshoot a produc
 
 The Retail Store Sample App is a deliberately over-engineered e-commerce application designed to demonstrate microservices patterns and AWS service integrations:
 
-![Architecture](./docs/images/architecture.png)
+![Architecture](./generated-diagrams/retail-store-architecture.png)
+
+#### Microservices Data Flow
+
+The following diagram shows how the microservices communicate with each other and their backend data stores:
+
+![Microservices Data Flow](./generated-diagrams/retail-store-microservices.png)
+
+#### Observability Architecture
+
+The comprehensive observability stack provides full visibility into application and infrastructure health:
+
+![Observability Architecture](./generated-diagrams/retail-store-observability.png)
+
+> **Note:** An editable Draw.io version of the architecture diagram is available at [`docs/retail-store-architecture.drawio`](./docs/retail-store-architecture.drawio)
 
 ### Microservice Components
 
@@ -315,7 +329,7 @@ AMP provides a fully managed Prometheus-compatible monitoring service.
 
 The EKS Managed Prometheus Scraper collects metrics from multiple sources:
 
-![Prometheus Scraper Architecture](./docs/images/prometheus-scraper.png)
+![Prometheus Scraper Architecture](./generated-diagrams/prometheus-scraper.png)
 
 **Key Metrics Available:**
 
