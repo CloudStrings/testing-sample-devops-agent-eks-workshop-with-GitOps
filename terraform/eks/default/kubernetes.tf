@@ -72,8 +72,10 @@ resource "kubernetes_namespace_v1" "catalog" {
 }
 
 resource "helm_release" "catalog" {
-  name  = "catalog"
-  chart = "../../../src/catalog/chart"
+  name       = "catalog"
+  repository = "oci://public.ecr.aws/aws-containers"
+  chart      = "retail-store-sample-catalog-chart"
+  version    = "1.3.0"
 
   namespace = kubernetes_namespace_v1.catalog.metadata[0].name
 
@@ -105,8 +107,10 @@ resource "kubernetes_namespace_v1" "carts" {
 }
 
 resource "helm_release" "carts" {
-  name  = "carts"
-  chart = "../../../src/cart/chart"
+  name       = "carts"
+  repository = "oci://public.ecr.aws/aws-containers"
+  chart      = "retail-store-sample-cart-chart"
+  version    = "1.3.0"
 
   namespace = kubernetes_namespace_v1.carts.metadata[0].name
 
@@ -136,8 +140,10 @@ resource "kubernetes_namespace_v1" "checkout" {
 }
 
 resource "helm_release" "checkout" {
-  name  = "checkout"
-  chart = "../../../src/checkout/chart"
+  name       = "checkout"
+  repository = "oci://public.ecr.aws/aws-containers"
+  chart      = "retail-store-sample-checkout-chart"
+  version    = "1.3.0"
 
   namespace = kubernetes_namespace_v1.checkout.metadata[0].name
 
@@ -168,8 +174,10 @@ resource "kubernetes_namespace_v1" "orders" {
 }
 
 resource "helm_release" "orders" {
-  name  = "orders"
-  chart = "../../../src/orders/chart"
+  name       = "orders"
+  repository = "oci://public.ecr.aws/aws-containers"
+  chart      = "retail-store-sample-orders-chart"
+  version    = "1.3.0"
 
   namespace = kubernetes_namespace_v1.orders.metadata[0].name
 
@@ -213,8 +221,10 @@ resource "helm_release" "ui" {
     helm_release.orders
   ]
 
-  name  = "ui"
-  chart = "../../../src/ui/chart"
+  name       = "ui"
+  repository = "oci://public.ecr.aws/aws-containers"
+  chart      = "retail-store-sample-ui-chart"
+  version    = "1.3.0"
 
   namespace = kubernetes_namespace_v1.ui.metadata[0].name
 
