@@ -138,39 +138,69 @@
           <mxGeometry x="620" y="520" width="48" height="48" as="geometry" />
         </mxCell>
         
+        <!-- AWS DevOps Agent Section -->
+        <mxCell id="devops-agent-section" value="AWS DevOps Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6e6;strokeColor=#cc0000;verticalAlign=top;fontSize=12;fontStyle=1;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="1080" y="80" width="320" height="140" as="geometry" />
+        </mxCell>
+        
+        <!-- DevOps Agent Icon -->
+        <mxCell id="devops-agent" value="DevOps Agent&#xa;Automated Investigation&#xa;&amp; Troubleshooting" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#01A88D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=1;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.robot;" vertex="1" parent="aws-cloud">
+          <mxGeometry x="1200" y="120" width="60" height="60" as="geometry" />
+        </mxCell>
+        
         <!-- Observability Section -->
         <mxCell id="observability" value="Observability Services" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f3ff;strokeColor=#0066cc;verticalAlign=top;fontSize=12;" vertex="1" parent="aws-cloud">
-          <mxGeometry x="1080" y="80" width="320" height="400" as="geometry" />
+          <mxGeometry x="1080" y="240" width="320" height="280" as="geometry" />
         </mxCell>
         
         <!-- CloudWatch -->
         <mxCell id="cloudwatch" value="CloudWatch&#xa;Container Insights" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#BC1356;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.cloudwatch;" vertex="1" parent="aws-cloud">
-          <mxGeometry x="1120" y="140" width="48" height="48" as="geometry" />
+          <mxGeometry x="1120" y="290" width="48" height="48" as="geometry" />
         </mxCell>
         
         <!-- Amazon Managed Prometheus -->
         <mxCell id="prometheus" value="Amazon Managed&#xa;Prometheus" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#BC1356;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.managed_service_for_prometheus;" vertex="1" parent="aws-cloud">
-          <mxGeometry x="1220" y="140" width="48" height="48" as="geometry" />
+          <mxGeometry x="1220" y="290" width="48" height="48" as="geometry" />
         </mxCell>
         
         <!-- Amazon Managed Grafana -->
         <mxCell id="grafana" value="Amazon Managed&#xa;Grafana" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#BC1356;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.managed_service_for_grafana;" vertex="1" parent="aws-cloud">
-          <mxGeometry x="1320" y="140" width="48" height="48" as="geometry" />
+          <mxGeometry x="1320" y="290" width="48" height="48" as="geometry" />
         </mxCell>
         
         <!-- X-Ray -->
         <mxCell id="xray" value="AWS X-Ray&#xa;Tracing" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#BC1356;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.xray;" vertex="1" parent="aws-cloud">
-          <mxGeometry x="1120" y="260" width="48" height="48" as="geometry" />
+          <mxGeometry x="1120" y="400" width="48" height="48" as="geometry" />
         </mxCell>
         
         <!-- Application Signals -->
         <mxCell id="app-signals" value="Application&#xa;Signals" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#BC1356;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.cloudwatch;" vertex="1" parent="aws-cloud">
-          <mxGeometry x="1220" y="260" width="48" height="48" as="geometry" />
+          <mxGeometry x="1220" y="400" width="48" height="48" as="geometry" />
         </mxCell>
         
         <!-- CloudWatch Logs -->
         <mxCell id="cw-logs" value="CloudWatch&#xa;Logs" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#BC1356;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.cloudwatch;" vertex="1" parent="aws-cloud">
-          <mxGeometry x="1320" y="260" width="48" height="48" as="geometry" />
+          <mxGeometry x="1320" y="400" width="48" height="48" as="geometry" />
+        </mxCell>
+        
+        <!-- DevOps Agent Connection to Observability -->
+        <mxCell id="agent-to-obs" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#cc0000;strokeWidth=2;dashed=1;" edge="1" parent="aws-cloud" source="devops-agent-section" target="observability">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1230" y="220" as="sourcePoint" />
+            <mxPoint x="1230" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- DevOps Agent Connection to EKS -->
+        <mxCell id="agent-to-eks" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;strokeColor=#cc0000;strokeWidth=2;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="aws-cloud" source="devops-agent-section">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1080" y="150" as="sourcePoint" />
+            <mxPoint x="620" y="360" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="800" y="150" />
+              <mxPoint x="800" y="360" />
+            </Array>
+          </mxGeometry>
         </mxCell>
         
         <!-- Storage Section -->

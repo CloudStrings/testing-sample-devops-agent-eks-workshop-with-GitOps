@@ -1,10 +1,12 @@
-![Banner](./docs/images/banner.png)
+<img src="https://raw.githubusercontent.com/aws-containers/retail-store-sample-app/main/docs/images/banner.png" width="800" alt="Banner">
 
 > **🚀 Ready to deploy?** Skip to the [Deployment](#-deployment) section to start deploying the infrastructure with Terraform.
 
 ---
 
 > **⚠️ Disclaimer:** This repository includes intentional fault injection and stress test scenarios designed to demonstrate the AWS DevOps Agent's investigation capabilities. These scripts deliberately introduce issues such as memory leaks, network partitions, database stress, and service latency. **Do not run these scripts in production environments.** They are intended for learning and demonstration purposes only.
+
+> **📦 Source Code:** The source code for the Retail Store Sample Application can be found at: https://github.com/aws-containers/retail-store-sample-app
 
 ---
 
@@ -100,19 +102,19 @@ This hands-on lab demonstrates how to deploy, operate, and troubleshoot a produc
 
 The Retail Store Sample App is a deliberately over-engineered e-commerce application designed to demonstrate microservices patterns and AWS service integrations:
 
-![Architecture](./docs/images/retail-store-architecture.png)
+<img src="docs/images/retail-store-architecture.png" width="700" alt="Architecture">
 
 #### Microservices Data Flow
 
 The following diagram shows how the microservices communicate with each other and their backend data stores:
 
-![Microservices Data Flow](./docs/images/retail-store-microservices.png)
+<img src="docs/images/retail-store-microservices.png" width="700" alt="Microservices Data Flow">
 
 #### Observability Architecture
 
 The comprehensive observability stack provides full visibility into application and infrastructure health:
 
-![Observability Architecture](./docs/images/retail-store-observability.png)
+<img src="docs/images/retail-store-observability.png" width="700" alt="Observability Architecture">
 
 > **Note:** An editable Draw.io version of the architecture diagram is available at [`docs/retail-store-architecture.drawio`](./docs/retail-store-architecture.drawio)
 
@@ -329,7 +331,7 @@ AMP provides a fully managed Prometheus-compatible monitoring service.
 
 The EKS Managed Prometheus Scraper collects metrics from multiple sources:
 
-![Prometheus Scraper Architecture](./docs/images/prometheus-scraper.png)
+<img src="https://raw.githubusercontent.com/aws-containers/retail-store-sample-app/main/docs/images/prometheus-scraper.png" width="600" alt="Prometheus Scraper Architecture">
 
 **Key Metrics Available:**
 
@@ -1216,7 +1218,7 @@ After injecting a fault using the scripts in the [Fault Injection Scenarios](#fa
 
 **Investigation Flow:**
 
-![Investigation Flow](./docs/images/investigation-flow.png)
+<img src="https://raw.githubusercontent.com/aws-containers/retail-store-sample-app/main/docs/images/investigation-flow.png" width="600" alt="Investigation Flow">
 
 > **Tip:** For detailed investigation prompts with specific metrics and starting points, see the "DevOps Agent Investigation Prompts" section under each [Fault Injection Scenario](#fault-injection-scenarios).
 
