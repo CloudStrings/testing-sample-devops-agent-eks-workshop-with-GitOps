@@ -107,6 +107,7 @@ module "retail_app_eks" {
   }
 
   environment_name      = local.cluster_name
+  region                = var.region
   cluster_version       = "1.34"
   vpc_id                = module.vpc.inner.vpc_id
   vpc_cidr              = module.vpc.inner.vpc_cidr_block

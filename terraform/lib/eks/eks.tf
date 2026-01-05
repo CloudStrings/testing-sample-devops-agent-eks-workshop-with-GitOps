@@ -204,3 +204,40 @@ resource "kubernetes_config_map" "network_policy_controller" {
     module.eks_cluster
   ]
 }
+
+# NodeClass with Network Policy enabled for EKS Auto Mode
+# This is required for NetworkPolicy resources to be enforced
+# Using null_resource with kubectl to avoid kubernetes_manifest REST client issues during plan/destroy
+resource "null_resource" "nodeclass_network_policy" {
+  triggers = {
+    cluster_name = module.eks_cluster.cluster_name
+    region       = var.region
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region}
+      cat <<EOF | kubectl apply -f -
+apiVersion: eks.amazonaws.com/v1
+kind: NodeClass
+metadata:
+  name: default
+spec:
+  # DefaultAllow: Allow all traffic by default, NetworkPolicy/ClusterNetworkPolicy can deny specific traffic
+  # This is required for EKS Auto Mode network policy enforcement
+  networkPolicy: DefaultAllow
+  networkPolicyEventLogs: Enabled
+EOF
+    EOT
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      aws eks update-kubeconfig --name ${self.triggers.cluster_name} --region ${self.triggers.region} 2>/dev/null || true
+      kubectl delete nodeclass default 2>/dev/null || true
+    EOT
+  }
+
+  depends_on = [module.eks_cluster]
+}

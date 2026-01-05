@@ -1207,14 +1207,13 @@ From the Operator Web App:
 
 After injecting a fault using the scripts in the [Fault Injection Scenarios](#fault-injection-scenarios) section, use these prompts to start a DevOps Agent investigation:
 
-| Scenario | Investigation Details | Investigation Starting Point |
-|----------|----------------------|------------------------------|
-| [Catalog Latency](#1-catalog-service-latency-injection) | "Product pages are loading slow. Users are complaining about the catalog taking forever to load." | "Check the catalog service pods in the catalog namespace. Look at latency metrics and CPU usage." |
-| [RDS Stress Test](#2-rds-database-stress-test) | "Checkout is failing for customers. Orders aren't going through and we're seeing timeouts." | "Check the orders service and the RDS PostgreSQL database. Look at Performance Insights for slow queries." |
-| [Network Partition](#3-network-partition-ui--cart) | "Users can browse products fine but Add to Cart is broken. Getting timeout errors." | "Check connectivity between the UI service and the carts service. Look for network policies or blocked traffic." |
-| [RDS Security Group Block](#4-rds-security-group-misconfiguration) | "Orders and checkout are completely down. Getting 500 errors. RDS shows healthy but apps can't connect." | "Check the RDS security groups and VPC flow logs. The database is up but something is blocking connections." |
-| [Cart Memory Leak](#5-cart-memory-leak) | "Cart service pods keep restarting every few minutes. Users are seeing intermittent failures." | "Check the carts namespace for pod restarts and OOMKilled events. Look at memory usage patterns." |
-| [DynamoDB Stress Test](#6-dynamodb-stress-test) | "Cart operations are slow and timing out. Users complaining about sluggish cart experience." | "Check DynamoDB metrics for the carts table. Look at consumed read capacity and throttling." |
+| Scenario | Investigation Details |
+|----------|----------------------|
+| [Catalog Latency](#1-catalog-service-latency-injection) | "Product pages are loading slowly." |
+| [Network Partition](#2-network-partition) | "Website is unreachable." |
+| [RDS Security Group Block](#3-rds-security-group-misconfiguration) | "Catalog pod is crashing." |
+| [Cart Memory Leak](#4-cart-memory-leak) | "Intermittent cart failures, pods restarting." |
+| [DynamoDB Stress Test](#5-dynamodb-stress-test) | "Slow performance and occasional failures." |
 
 **Investigation Flow:**
 
@@ -1311,151 +1310,36 @@ chmod +x *.sh
 
 ### Available Scenarios
 
-| Scenario | Inject Script | Rollback Script | Description |
-| -------- | ------------- | --------------- | ----------- |
-| [Catalog Latency](#1-catalog-service-latency-injection) | `inject-catalog-latency.sh` | `rollback-catalog.sh` | Adds 300-500ms latency + CPU throttling |
-| [RDS Stress Test](#2-rds-database-stress-test) | `inject-rds-stress.sh` | `rollback-rds-stress.sh` | Overwhelms PostgreSQL with heavy queries |
-| [Network Partition](#3-network-partition-ui--cart) | `inject-network-partition.sh` | `rollback-network-partition.sh` | Blocks traffic between UI and Cart services |
-| [RDS Security Group Block](#4-rds-security-group-misconfiguration) | `inject-rds-sg-block.sh` | `rollback-rds-sg-block.sh` | Simulates accidental SG misconfiguration |
-| [Cart Memory Leak](#5-cart-memory-leak) | `inject-cart-memory-leak.sh` | `rollback-cart-memory-leak.sh` | Causes OOMKill and CrashLoopBackOff |
-| [DynamoDB Stress Test](#6-dynamodb-stress-test) | `inject-dynamodb-stress.sh` | `rollback-dynamodb-stress.sh` | Hammers DynamoDB with read requests (instant rollback) |
+| Scenario | Inject Script | Rollback Script | Symptom |
+| -------- | ------------- | --------------- | ------- |
+| [Catalog Latency](#1-catalog-service-latency-injection) | `inject-catalog-latency.sh` | `rollback-catalog.sh` | Product pages are loading slowly |
+| [Network Partition](#2-network-partition) | `inject-network-partition.sh` | `rollback-network-partition.sh` | Website is unreachable |
+| [RDS Security Group Block](#3-rds-security-group-misconfiguration) | `inject-rds-sg-block.sh` | `rollback-rds-sg-block.sh` | Catalog pod is crashing |
+| [Cart Memory Leak](#4-cart-memory-leak) | `inject-cart-memory-leak.sh` | `rollback-cart-memory-leak.sh` | Intermittent cart failures, pods restarting |
+| [DynamoDB Stress Test](#5-dynamodb-stress-test) | `inject-dynamodb-stress.sh` | `rollback-dynamodb-stress.sh` | Slow performance and occasional failures |
 
 ---
 
-### 1. Catalog Service Latency & CPU Stress Injection
+### 1. Catalog Service Latency Injection
 
-Simulates high latency and extreme CPU stress in the Catalog microservice by adding a sidecar that injects network delay and generates CPU load.
-
-**What it does:**
-- Adds 300-500ms latency on outbound HTTP calls via `tc netem`
-- Reduces main container CPU limits from 256m to 128m (throttling)
-- Adds a stress sidecar with 8 CPU workers at 100% load (4000m CPU limit)
-- Triggers HPA to scale pods to maximum replicas
-
-**Expected behavior after injection:**
-- Catalog pods will restart with the new configuration (latency + stress sidecar added)
-- HPA will scale the deployment to maximum replicas (10 pods) due to high CPU
-- All pods will show 2/2 containers (main + latency-injector sidecar)
-- Product pages will load noticeably slower (3-5 seconds instead of <1 second)
-- CPU throttling on main container will cause intermittent slowdowns
-- UI service may show timeout errors when fetching product listings
-
-**Expected symptoms in monitoring:**
-
-| Metric | Expected Value |
-|--------|----------------|
-| Pod CPU Utilization | 90-100% (hitting limits) |
-| HPA Replicas | Max (10 pods) |
-| HPA CPU Target | 140-200% (above 70% threshold) |
-| Pod CPU (kubectl top) | 2500-4000m per pod |
-| Container Insights CPU | ~50% node utilization, ~95% over-limit |
-| Response Latency | +300-500ms increase |
-
-**CloudWatch Container Insights metrics:**
-- `pod_cpu_utilization`: Shows percentage of node CPU used by catalog pods
-- `pod_cpu_utilization_over_pod_limit`: Shows pods exceeding their CPU limits (~95%)
+Simulates high latency and CPU stress in the Catalog microservice.
 
 **Run the scenario:**
 ```bash
 # Inject the fault
 ./fault-injection/inject-catalog-latency.sh
 
-# The script will:
-# 1. Backup current deployment
-# 2. Create ConfigMap with stress script
-# 3. Patch deployment with sidecar
-# 4. Wait for rollout
-# 5. Show pod status and CPU usage
-# 6. Wait 60s for HPA scaling
-# 7. Query CloudWatch Container Insights
-# 8. Display summary with HPA status
-
-# Verify injection manually
-kubectl get pods -n catalog
-kubectl top pods -n catalog --containers
-kubectl get hpa -n catalog
-kubectl logs -n catalog -l app.kubernetes.io/name=catalog -c latency-injector --tail=5
-
-# Rollback (scales back to 2 replicas)
+# Rollback
 ./fault-injection/rollback-catalog.sh
 ```
 
-**DevOps Agent Investigation Prompts:**
-
-Use these prompts when starting an investigation in the AWS DevOps Agent web app:
-
-> **Investigation Details:** "Product pages are loading slow. Users are complaining about the catalog taking forever to load. HPA has scaled to max pods but CPU is still maxed out. Started happening about 10 minutes ago."
-
-> **Investigation Starting Point:** "Check the catalog service pods in the catalog namespace. Look at CPU utilization, HPA status, and latency metrics."
+**Symptom:** Product pages are loading slowly.
 
 ---
 
-### 2. RDS Database Stress Test
+### 2. Network Partition
 
-Creates heavy load on the PostgreSQL RDS instance to simulate database performance degradation.
-
-**What it does:**
-- Deploys 18 parallel stress workers (CPU, recursive, hash, lock, write)
-- Creates a 100k row stress table
-- Generates complex queries causing full table scans
-
-**Expected behavior after injection:**
-- A stress test pod will be created in the `orders` namespace
-- Orders service will become slow or unresponsive within 1-2 minutes
-- Checkout process will fail with database timeout errors
-- Order history pages will take 10+ seconds to load or timeout
-- New orders will fail to be created
-- Application logs will show `Connection timed out` and `HikariPool` errors
-
-**Expected symptoms in monitoring:**
-- RDS CPU utilization: 70-100%
-- Slow queries visible in Performance Insights (queries taking 5-30+ seconds)
-- Lock wait events (LWLock, Lock:transactionid)
-- Orders/Checkout service timeouts and 500 errors
-- HikariCP connection pool exhaustion in pod logs
-
-**Run the scenario:**
-```bash
-# Inject the fault
-./inject-rds-stress.sh
-
-# Monitor stress pod
-kubectl logs -f rds-stress-test -n orders
-
-# Check RDS metrics
-# AWS Console > RDS > Performance Insights > retail-store-orders-one
-
-# Rollback
-./rollback-rds-stress.sh
-```
-
-**DevOps Agent Investigation Prompts:**
-
-> **Investigation Details:** "Checkout is failing for customers. Orders aren't going through and we're seeing timeouts. Might be a database issue."
-
-> **Investigation Starting Point:** "Check the orders service and the RDS PostgreSQL database. Look at Performance Insights for slow queries."
-
----
-
-### 3. Network Partition (UI → Cart)
-
-Blocks network traffic from UI service to Cart service using Kubernetes NetworkPolicy.
-
-**Prerequisites:**
-- Network Policy Controller must be enabled (configured in Terraform)
-
-**What it does:**
-- Applies NetworkPolicy blocking ingress to Cart pods from UI namespace
-- Other services (checkout, orders) can still communicate with Cart
-
-**Expected behavior after injection:**
-- Pods will NOT restart (this is a network-level block, not a pod change)
-- Application will be inaccessible due to cart service connectivity issues
-- NetworkPolicy blocks UI namespace from reaching carts service
-
-**Expected symptoms in monitoring:**
-- Connection timeout errors in application logs
-- Network flow logs show blocked traffic from UI namespace to Carts namespace
+Blocks ingress traffic to the UI service using Kubernetes NetworkPolicy.
 
 **Run the scenario:**
 ```bash
@@ -1466,173 +1350,58 @@ Blocks network traffic from UI service to Cart service using Kubernetes NetworkP
 ./fault-injection/rollback-network-partition.sh
 ```
 
-**DevOps Agent Investigation Prompts:**
-
-> **Investigation Details:** "Users can browse products fine but Add to Cart is broken. Getting timeout errors when trying to add items. Cart page also won't load."
-
-> **Investigation Starting Point:** "Check connectivity between the UI service and the carts service. Look for network policies or blocked traffic."
+**Symptom:** Website is unreachable.
 
 ---
 
-### 4. RDS Security Group Misconfiguration
+### 3. RDS Security Group Misconfiguration
 
-Simulates an accidental security group change that blocks EKS nodes from connecting to ALL RDS instances.
-
-**What it does:**
-- Auto-discovers all RDS instances in the region
-- Removes ingress rules allowing EKS cluster SG to access RDS on ports 3306 (MySQL) and 5432 (PostgreSQL)
-- Automatically restarts application pods to trigger connection failures
-- RDS instances remain healthy but unreachable from EKS
-
-**Expected behavior after injection:**
-- Catalog, Orders, and Checkout pods will be restarted by the script
-- Pods will enter `Running` state but application will fail health checks
-- Pods may go into `CrashLoopBackOff` if health checks fail repeatedly
-- All database-dependent operations will fail immediately
-- Product catalog will be empty or show errors
-- Order history will fail to load
-- Checkout process will fail completely
-- RDS instances will appear healthy in AWS Console (misleading!)
-
-**Expected symptoms in monitoring:**
-- Orders/Checkout/Catalog service failures (500 errors)
-- "Connection timed out" or "SocketTimeoutException" errors in pod logs
-- HikariCP connection pool failures (`Failed to create/setup connection`)
-- RDS shows healthy in console but unreachable from application
-- VPC Flow Logs show REJECT for ports 3306/5432 traffic
-
-**Run the scenario:**
-```bash
-# Inject the fault (auto-discovers and blocks all RDS instances)
-./fault-injection/inject-rds-sg-block.sh
-
-# Rollback (restores all revoked rules)
-./fault-injection/rollback-rds-sg-block.sh
-```
-
-**Check application logs for errors:**
-```bash
-# Orders service logs (PostgreSQL/HikariCP errors)
-kubectl logs -n orders -l app.kubernetes.io/name=orders --tail=100 | grep -iE "HikariPool|SocketTimeoutException|connection attempt failed"
-
-# Catalog service logs (MySQL connection errors)
-kubectl logs -n catalog -l app.kubernetes.io/name=catalog --tail=100 | grep -iE "i/o timeout|failed to connect|panic"
-```
-
-**Expected error messages:**
-```
-# Orders (PostgreSQL)
-HikariPool-1 - Pool is empty, failed to create/setup connection
-org.postgresql.util.PSQLException: The connection attempt failed.
-Caused by: java.net.SocketTimeoutException: Connect timed out
-
-# Catalog (MySQL)
-[error] failed to initialize database, got error dial tcp 10.0.x.x:3306: i/o timeout
-panic: failed to connect database
-```
-
-**DevOps Agent Investigation Prompts:**
-
-> **Investigation Details:** "Orders and checkout are completely down. Getting 500 errors. RDS shows healthy in the console but apps can't seem to connect."
-
-> **Investigation Starting Point:** "Check the RDS security groups and VPC flow logs. The database is up but something is blocking connections."
-
----
-
-### 5. Cart Memory Leak
-
-Simulates a memory leak in the Cart service causing OOMKill and pod restarts.
-
-**What it does:**
-- Adds memory-leaker sidecar that consumes ~10MB every 5 seconds
-- Reduces main container memory from 512Mi to 256Mi
-- Sidecar has 200Mi limit, triggers OOMKill when exceeded
-
-**Expected behavior after injection:**
-- Cart pods will restart with the new configuration (memory-leaker sidecar added)
-- Within 1-2 minutes, memory usage will climb rapidly
-- Pods will be killed by Kubernetes with `OOMKilled` status
-- Pods will restart and enter `CrashLoopBackOff` cycle
-- Cart functionality will be intermittently available (works briefly after restart, then fails)
-- Users will see "Service Unavailable" errors when accessing cart
-- Pod restart count will increase continuously (visible in `kubectl get pods`)
-
-**Expected symptoms in monitoring:**
-- Pod restarts due to `OOMKilled` (visible in `kubectl describe pod`)
-- `CrashLoopBackOff` status in pod list
-- Memory usage spikes to limit then drops (sawtooth pattern)
-- Increased memory usage in Prometheus/CloudWatch before each crash
-- Cart operation failures in UI (intermittent 500 errors)
-- Kubernetes events showing `OOMKilled` reason
+Simulates an accidental security group change that blocks EKS nodes from connecting to RDS instances.
 
 **Run the scenario:**
 ```bash
 # Inject the fault
-./inject-cart-memory-leak.sh
-
-# Monitor pods (watch for restarts)
-watch kubectl get pods -n carts
-
-# Check memory leak progress
-kubectl logs -n carts -l app.kubernetes.io/name=carts -c memory-leaker -f
-
-# Check for OOMKilled events
-kubectl describe pod -n carts -l app.kubernetes.io/name=carts | grep -A5 'Last State'
+./fault-injection/inject-rds-sg-block.sh
 
 # Rollback
-./rollback-cart-memory-leak.sh
+./fault-injection/rollback-rds-sg-block.sh
 ```
 
-**DevOps Agent Investigation Prompts:**
-
-> **Investigation Details:** "Cart service pods keep restarting every few minutes. Users are seeing intermittent failures when using the cart."
-
-> **Investigation Starting Point:** "Check the carts namespace for pod restarts and OOMKilled events. Look at memory usage patterns."
+**Symptom:** Catalog pod is crashing.
 
 ---
 
-### 6. DynamoDB Stress Test
+### 4. Cart Memory Leak
 
-Deploys a stress pod that hammers DynamoDB with massive read requests, causing throttling and performance degradation for the Cart service.
+Simulates a memory leak in the Cart service causing OOMKill and pod restarts.
 
-**What it does:**
-- Deploys a Python stress test pod in the carts namespace
-- Runs 30 scan workers, 30 query workers, and 40 get workers (100 total)
-- Performs full table scans, GSI queries, and GetItem requests continuously
-- Read-only - no data is written, so rollback is instant
+**Run the scenario:**
+```bash
+# Inject the fault
+./fault-injection/inject-cart-memory-leak.sh
 
-**Expected behavior after injection:**
-- DynamoDB will start throttling read requests
-- Cart service operations will slow down or fail
-- "Add to Cart" and "View Cart" will be slow or timeout
-- Stress pod logs will show "THROTTLED" messages
+# Rollback
+./fault-injection/rollback-cart-memory-leak.sh
+```
 
-**Expected symptoms in monitoring:**
-- DynamoDB `ThrottledRequests` and `ReadThrottleEvents` metrics spike
-- `ConsumedReadCapacityUnits` spikes significantly
-- Cart service latency increases
-- Application timeouts and slow responses
+**Symptom:** Intermittent cart failures, pods restarting.
+
+---
+
+### 5. DynamoDB Stress Test
+
+Deploys a stress pod that hammers DynamoDB with read requests, causing throttling.
 
 **Run the scenario:**
 ```bash
 # Inject the fault
 ./fault-injection/inject-dynamodb-stress.sh
 
-# Monitor stress pod
-kubectl logs -f dynamodb-stress-test -n carts
-
-# Check CloudWatch DynamoDB metrics
-# AWS Console > CloudWatch > DynamoDB metrics > ThrottledRequests
-
 # Rollback (instant - no data cleanup needed)
 ./fault-injection/rollback-dynamodb-stress.sh
 ```
 
-**DevOps Agent Investigation Prompts:**
-
-> **Investigation Details:** "Cart operations are slow and sometimes timing out. Users complaining about sluggish cart experience."
-
-> **Investigation Starting Point:** "Check DynamoDB metrics for the carts table. Look at consumed read capacity and throttling events."
+**Symptom:** Slow performance and occasional failures.
 
 ---
 
