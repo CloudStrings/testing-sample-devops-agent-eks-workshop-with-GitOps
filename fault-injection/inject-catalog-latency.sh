@@ -5,7 +5,8 @@ set -e
 
 NAMESPACE="catalog"
 DEPLOYMENT="catalog"
-BACKUP_FILE="fault-injection/catalog-original.yaml"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_FILE="$SCRIPT_DIR/catalog-original.yaml"
 
 echo "=== Catalog Service Latency Injection ==="
 echo "Target: $DEPLOYMENT in namespace $NAMESPACE"
@@ -17,11 +18,11 @@ if [ -f "$BACKUP_FILE" ]; then
     echo "[1/4] Backup exists and injection appears active - keeping existing backup"
   else
     echo "[1/4] Backing up current (clean) deployment..."
-    kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o yaml > $BACKUP_FILE
+    kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o yaml > "$BACKUP_FILE"
   fi
 else
   echo "[1/4] Backing up current deployment..."
-  kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o yaml > $BACKUP_FILE
+  kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o yaml > "$BACKUP_FILE"
 fi
 
 echo "[2/4] Creating latency + CPU stress sidecar configuration..."

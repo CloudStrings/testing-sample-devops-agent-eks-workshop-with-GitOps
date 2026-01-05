@@ -5,7 +5,8 @@ set -e
 
 NAMESPACE="carts"
 DEPLOYMENT="carts"
-BACKUP_FILE="fault-injection/carts-original.yaml"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_FILE="$SCRIPT_DIR/carts-original.yaml"
 
 echo "=== Cart Memory Leak Rollback ==="
 echo ""
@@ -30,7 +31,7 @@ if [ ! -f "$BACKUP_FILE" ]; then
   kubectl rollout restart deployment/$DEPLOYMENT -n $NAMESPACE
 else
   echo "[1/3] Restoring from backup: $BACKUP_FILE"
-  kubectl replace --force -f $BACKUP_FILE
+  kubectl replace --force -f "$BACKUP_FILE"
 fi
 
 echo "[2/3] Waiting for deployment rollout..."

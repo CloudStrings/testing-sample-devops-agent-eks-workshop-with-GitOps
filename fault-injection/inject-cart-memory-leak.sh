@@ -5,14 +5,15 @@ set -e
 
 NAMESPACE="carts"
 DEPLOYMENT="carts"
-BACKUP_FILE="fault-injection/carts-original.yaml"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_FILE="$SCRIPT_DIR/carts-original.yaml"
 
 echo "=== Cart Memory Leak Injection ==="
 echo "Target: $DEPLOYMENT in namespace $NAMESPACE"
 echo ""
 
 echo "[1/3] Backing up current deployment..."
-kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o yaml > $BACKUP_FILE
+kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o yaml > "$BACKUP_FILE"
 
 echo "[2/3] Creating memory leak sidecar configuration..."
 kubectl apply -f - <<EOF

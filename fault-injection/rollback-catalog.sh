@@ -5,7 +5,8 @@ set -e
 
 NAMESPACE="catalog"
 DEPLOYMENT="catalog"
-BACKUP_FILE="fault-injection/catalog-original.yaml"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_FILE="$SCRIPT_DIR/catalog-original.yaml"
 
 echo "=== Catalog Service Fault Rollback ==="
 echo ""
