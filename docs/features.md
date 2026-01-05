@@ -49,6 +49,121 @@ This is a page in the UI component that displays information about the applicati
 
 The page can be found at `/topology`.
 
+### Network Flow Monitoring Setup
+
+The EKS cluster includes the Network Flow Monitoring Agent addon which provides container network observability. While the agent is automatically deployed via Terraform, you need to manually create a **Scope** and **Monitor** to start collecting and visualizing network flow data.
+
+#### Prerequisites
+
+- EKS cluster deployed with the `aws-network-flow-monitoring-agent` addon
+- AWS CLI configured with appropriate permissions
+- kubectl configured to access your cluster
+
+#### Step 1: Verify the Network Flow Monitoring Agent is Running
+
+```bash
+# Check if the addon is installed
+aws eks describe-addon \
+  --cluster-name retail-store \
+  --addon-name aws-network-flow-monitoring-agent \
+  --query 'addon.status'
+
+# Verify the agent pods are running
+kubectl get pods -n amazon-network-flow-monitor
+```
+
+You should see pods with status `Running`.
+
+#### Step 2: Create a Network Flow Monitor Scope
+
+A scope defines which resources to monitor. Create a scope for your EKS cluster:
+
+```bash
+# Get your AWS account ID
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGION=$(aws configure get region)
+CLUSTER_NAME="retail-store"
+
+# Create a scope targeting your EKS cluster
+aws networkflowmonitor create-scope \
+  --scope-name "${CLUSTER_NAME}-scope" \
+  --targets "targetIdentifier={targetId={accountId=${ACCOUNT_ID}},targetType=ACCOUNT},region=${REGION}"
+```
+
+#### Step 3: Create a Network Flow Monitor
+
+Create a monitor that uses the scope to collect flow data:
+
+```bash
+# Get the scope ARN from the previous step
+SCOPE_ARN=$(aws networkflowmonitor list-scopes \
+  --query "scopes[?scopeName=='${CLUSTER_NAME}-scope'].scopeArn" \
+  --output text)
+
+# Create the monitor
+aws networkflowmonitor create-monitor \
+  --monitor-name "${CLUSTER_NAME}-monitor" \
+  --scope-arn "${SCOPE_ARN}" \
+  --local-resources "type=AWS::EKS::Cluster,identifier=arn:aws:eks:${REGION}:${ACCOUNT_ID}:cluster/${CLUSTER_NAME}"
+```
+
+#### Step 4: View Network Flow Data in the Console
+
+1. Open the [Amazon CloudWatch Console](https://console.aws.amazon.com/cloudwatch)
+2. In the left navigation, click **Network Monitoring** → **Network Flow Monitor**
+3. Select your monitor (`retail-store-monitor`)
+4. Explore the following views:
+   - **Service Map**: Visual representation of service-to-service traffic
+   - **Flow Table**: Detailed network flow records between pods
+   - **Performance Metrics**: Latency, packet loss, and throughput metrics
+
+#### Step 5: View in EKS Console (Alternative)
+
+1. Open the [Amazon EKS Console](https://console.aws.amazon.com/eks)
+2. Select your cluster (`retail-store`)
+3. Navigate to the **Observability** tab
+4. Click on **Network Flow Monitor** to see:
+   - Traffic flows between services
+   - Network latency metrics
+   - Connection statistics
+
+#### Useful CLI Commands
+
+```bash
+# List all scopes
+aws networkflowmonitor list-scopes
+
+# List all monitors
+aws networkflowmonitor list-monitors
+
+# Get monitor status
+aws networkflowmonitor get-monitor --monitor-name "${CLUSTER_NAME}-monitor"
+
+# Query top contributors (traffic sources)
+aws networkflowmonitor start-query-workload-insights-top-contributors \
+  --scope-name "${CLUSTER_NAME}-scope" \
+  --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ) \
+  --end-time $(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  --metric-name ROUND_TRIP_TIME \
+  --destination-category INTER_AZ
+```
+
+#### Cleanup
+
+To remove the Network Flow Monitor resources:
+
+```bash
+# Delete the monitor first
+aws networkflowmonitor delete-monitor --monitor-name "${CLUSTER_NAME}-monitor"
+
+# Then delete the scope
+aws networkflowmonitor delete-scope --scope-name "${CLUSTER_NAME}-scope"
+```
+
+> **Note:** The Network Flow Monitoring Agent addon will continue running and can be reused with new scopes/monitors. To fully disable network flow monitoring, remove the addon via Terraform or the EKS console.
+
+---
+
 ### Generative AI chat bot
 
 This feature provides a chat bot interface directly in the store UI which can be used to demonstrate basic LLM inference use-cases. It is works with Amazon Bedrock and OpenAI compatible endpoints via configuration properties.
