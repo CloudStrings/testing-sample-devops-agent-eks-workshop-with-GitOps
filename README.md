@@ -1335,6 +1335,9 @@ Simulates high latency and CPU stress in the Catalog microservice.
 
 **Symptom:** Product pages are loading slowly.
 
+**Sample Prompt:**
+> "Product pages are loading slowly. The catalog service seems to be responding with high latency. Can you investigate what's causing the performance degradation?"
+
 ---
 
 ### 2. Network Partition
@@ -1351,6 +1354,9 @@ Blocks ingress traffic to the UI service using Kubernetes NetworkPolicy.
 ```
 
 **Symptom:** Website is unreachable.
+
+**Sample Prompt:**
+> "The retail store website is completely unreachable. Users are reporting connection timeouts when trying to access the site. Can you investigate the network connectivity issue?"
 
 ---
 
@@ -1369,6 +1375,9 @@ Simulates an accidental security group change that blocks EKS nodes from connect
 
 **Symptom:** Catalog pod is crashing.
 
+**Sample Prompt:**
+> "The catalog pod keeps crashing and restarting. It was working fine earlier today but now it can't seem to stay healthy. Can you investigate why the catalog service is failing?"
+
 ---
 
 ### 4. Cart Memory Leak
@@ -1386,6 +1395,9 @@ Simulates a memory leak in the Cart service causing OOMKill and pod restarts.
 
 **Symptom:** Intermittent cart failures, pods restarting.
 
+**Sample Prompt:**
+> "Users are experiencing intermittent cart failures. Sometimes adding items to cart works, sometimes it doesn't. I've noticed the cart pods are restarting frequently. Can you investigate what's causing the instability?"
+
 ---
 
 ### 5. DynamoDB Stress Test
@@ -1402,6 +1414,9 @@ Deploys a stress pod that hammers DynamoDB with read requests, causing throttlin
 ```
 
 **Symptom:** Slow performance and occasional failures.
+
+**Sample Prompt:**
+> "The cart service is experiencing slow performance and occasional failures. Users are complaining about delays when viewing or updating their shopping carts. Can you investigate the DynamoDB-related issues?"
 
 ---
 
