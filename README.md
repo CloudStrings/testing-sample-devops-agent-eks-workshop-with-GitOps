@@ -904,181 +904,104 @@ AWS DevOps Agent is a frontier AI agent that helps accelerate incident response 
 
 ### Create an Agent Space
 
-An **Agent Space** defines the scope of what AWS DevOps Agent can access as it performs tasks. Think of it as a logical boundary that groups related resources, applications, and infrastructure for investigation purposes.
+An **Agent Space** defines the tools and infrastructure that AWS DevOps Agent has access to.
 
-#### Organizing Your Agent Space
+For more details, see the [AWS DevOps Agent documentation](https://docs.aws.amazon.com/devopsagent/latest/userguide/getting-started-with-aws-devops-agent-creating-an-agent-space.html).
 
-You can organize Agent Spaces based on your operational model:
-- **Per Application** - One Agent Space per application (recommended for this lab)
-- **Per Team** - One Agent Space per on-call team managing multiple services
-- **Centralized** - Single Agent Space for the entire organization
+#### Step 1: Access the Console
 
-For this lab, we'll create an Agent Space specifically for the Retail Store application.
+1. Sign in to the [AWS Management Console](https://console.aws.amazon.com)
+2. Ensure you're in the **US East (N. Virginia)** region (`us-east-1`)
+3. Navigate to the [AWS DevOps Agent console](https://console.aws.amazon.com/devops-agent/home?region=us-east-1)
 
-#### Step-by-Step: Create an Agent Space
+#### Step 2: Create the Agent Space
 
-1. **Navigate to AWS DevOps Agent Console**
-   ```
-   https://console.aws.amazon.com/devops-agent/home?region=us-east-1
-   ```
+1. Click **Create Agent Space +**
+2. In the **Agent Space details** section, provide:
+   - **Name**: `retail-store-eks-workshop`
+   - **Description** (Optional): Add details about the Agent Space's purpose
 
-2. **Create the Agent Space**
-   - Click **Create Agent Space**
-   - Enter a name: `retail-store-lab` (or your preferred name)
-   - Optionally add a description: "Agent Space for AWS Retail Store Sample Application on EKS"
+#### Step 3: Configure Primary Account Access
 
-3. **Configure IAM Roles**
-   
-   The console will guide you to create the required IAM roles. AWS DevOps Agent needs permissions to:
-   - Introspect AWS resources in your account(s)
-   - Access CloudWatch metrics and logs
-   - Query X-Ray traces
-   - Read EKS cluster information
-   
-   The agent creates two IAM roles:
-   - **AgentSpace Execution Role** - Used by the agent to perform investigations
-   - **Cross-Account Role** (optional) - For monitoring resources in other AWS accounts
+In the **Give this Agent Space AWS resource access** section:
 
-4. **Enable the Web App**
-   - Check the option to **Enable AWS DevOps Agent web app**
-   - This provides a web interface for operators to trigger and monitor investigations
+1. Select **Auto-create a new AWS DevOps Agent role**
+2. (Optional) Update the Agent Space role name
 
-5. **Click Create**
-   - Wait for the Agent Space to be created (typically 1-2 minutes)
+> **Note:** You must have IAM permissions to create new roles to use this option.
 
-#### Required IAM Permissions
+#### Step 4: Configure Resource Discovery Tags
 
-The IAM role created for the Agent Space requires the following permissions:
+By default, all CloudFormation stacks and their resources will be discovered. Since this sample uses Terraform (not CloudFormation), you need to add a tag during Agent Space creation so the agent can discover your resources.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "cloudwatch:GetMetricData",
-        "cloudwatch:GetMetricStatistics",
-        "cloudwatch:ListMetrics",
-        "cloudwatch:DescribeAlarms",
-        "logs:GetLogEvents",
-        "logs:FilterLogEvents",
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams",
-        "xray:GetTraceSummaries",
-        "xray:BatchGetTraces",
-        "eks:DescribeCluster",
-        "eks:ListClusters",
-        "eks:ListNodegroups",
-        "eks:DescribeNodegroup",
-        "ec2:DescribeInstances",
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeVpcs",
-        "rds:DescribeDBInstances",
-        "rds:DescribeDBClusters",
-        "dynamodb:DescribeTable",
-        "dynamodb:ListTables",
-        "elasticache:DescribeCacheClusters",
-        "mq:DescribeBroker"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
+In the **Include AWS tags** section:
 
-> **Note:** The console automatically creates and attaches the appropriate policies. The above is for reference.
+1. Click **Add tag**
+2. Enter:
 
-#### Mandatory Resource Tags
+| Tag Key | Tag Value |
+|---------|-----------|
+| `eksdevopsagent` | `true` |
 
-All AWS resources in this lab are tagged with:
+> **Important:** All resources in this sample are tagged with `eksdevopsagent=true`. This ensures the DevOps Agent discovers the EKS cluster, services, Aurora databases, DynamoDB tables, and all related infrastructure.
 
-```
-devopsagent = "true"
-```
+#### Step 5: Enable the Web App
 
-This tag is **critical** for the DevOps Agent to:
-- Automatically discover resources associated with the Retail Store application
-- Correlate related resources during investigations
-- Scope troubleshooting to the correct infrastructure
+The Web App is where you interact with AWS DevOps Agent for incident investigations.
 
-The Terraform deployment automatically applies this tag to all resources. If you create additional resources manually, ensure you add this tag.
+1. Select **Auto-create a new AWS DevOps Agent role**
+2. Review the permissions that will be granted to the role
 
-#### EKS Cluster Discovery
+#### Step 6: Submit
 
-AWS DevOps Agent automatically discovers your EKS cluster through the IAM roles configured during Agent Space creation. However, to access Kubernetes resources (pods, events, deployments), you must grant the DevOps Agent's IAM role access to the EKS cluster.
+Click **Submit** and wait for the Agent Space to be created (typically 1-2 minutes).
 
-#### Configure EKS Access for DevOps Agent (Required)
+#### Verify Setup
 
-> **⚠️ Important:** Without this step, the DevOps Agent will receive `401 Unauthorized` errors when trying to access Kubernetes events, pod status, and other cluster resources.
+Once configured, the **Configure Web App** button should become **Admin access**. Clicking it should open the Web App and authenticate successfully.
 
-The DevOps Agent needs an EKS Access Entry to query the Kubernetes API. Follow these steps:
+### Configure EKS Access for DevOps Agent (Required)
 
-**Step 1: Get the DevOps Agent IAM Role ARN**
+AWS DevOps Agent needs access to the Kubernetes API to describe your Kubernetes cluster objects, retrieve pod logs and cluster events.
 
-1. Open the [AWS DevOps Agent Console](https://console.aws.amazon.com/devops-agent/home?region=us-east-1)
-2. Select your Agent Space
+> **⚠️ Important:** This step is required for the DevOps Agent to investigate Kubernetes-level issues like pod failures, resource constraints, and deployment problems.
+
+For detailed instructions, refer to the official AWS documentation: [AWS EKS access setup](https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent-aws-eks-access-setup.html)
+
+#### Configure via DevOps Agent Console
+
+1. Open the [DevOps Agent Console](https://console.aws.amazon.com/devops-agent/home?region=us-east-1)
+2. Select your Agent Space: `retail-store-eks-workshop`
 3. Navigate to **Capabilities** → **Cloud** → **Primary Source** → **Edit**
-4. The IAM Role ARN used by the Agent Space is displayed in the configuration
-5. Copy the role ARN (e.g., `arn:aws:iam::123456789012:role/DevOpsAgentRole-xxxxx`)
+4. Follow the setup instructions provided in the console
 
-**Step 2: Add the Role to EKS Access Entries**
+#### What This Enables
 
-**Option A: Using AWS Console**
+With EKS access configured, the DevOps Agent can:
 
-1. Open the [Amazon EKS Console](https://console.aws.amazon.com/eks)
-2. Select your cluster: `retail-store`
-3. Navigate to **Access** tab → **IAM access entries**
-4. Click **Create access entry**
-5. Configure:
-   - **IAM principal ARN:** Paste the DevOps Agent Execution Role ARN
-   - **Type:** Standard
-6. Click **Next**
-7. Add access policy:
-   - **Policy name:** `AmazonEKSClusterAdminPolicy`
-   - **Access scope:** Cluster
-8. Click **Create**
+| Capability | Description |
+|------------|-------------|
+| **Pod Status** | Check running, pending, failed pods |
+| **Events** | View Kubernetes events for troubleshooting |
+| **Deployments** | Examine deployment configurations |
+| **Services** | Check service endpoints and selectors |
+| **HPA** | Monitor autoscaling status |
+| **Logs** | Access pod logs via CloudWatch |
+| **Resource Usage** | View CPU/memory from metrics server |
 
-**Option B: Using AWS CLI**
+#### Troubleshooting
 
-```bash
-# Set your DevOps Agent's IAM role ARN
-DEVOPS_AGENT_ROLE_ARN="arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_DEVOPS_AGENT_ROLE"
+**Error: Access entry already exists**
+- The entry may have been created during infrastructure deployment
+- Verify it has the correct policy attached
 
-# Create the access entry
-aws eks create-access-entry \
-  --cluster-name retail-store \
-  --principal-arn $DEVOPS_AGENT_ROLE_ARN \
-  --type STANDARD
+**Error: Invalid principal ARN**
+- Ensure you copied the complete ARN including the role name
+- Verify the role exists in IAM
 
-# Associate the cluster admin policy
-aws eks associate-access-policy \
-  --cluster-name retail-store \
-  --principal-arn $DEVOPS_AGENT_ROLE_ARN \
-  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-  --access-scope type=cluster
-```
-
-Once configured, the DevOps Agent will be able to:
-
-1. **Automatically discover** your EKS cluster (`retail-store`) through the Topology view
-2. **Correlate EKS resources** including:
-   - Namespaces and deployments
-   - Pod status and events
-   - Service configurations
-   - Resource utilization metrics
-3. **Build relationships** between your EKS workloads and backend services (RDS, DynamoDB, ElastiCache, etc.)
-
-To verify discovery, navigate to the **Topology** tab in your Agent Space. The topology shows key resources and relationships the agent has identified. As the agent completes more investigations, it will discover and add new resources to this view.
-
-> **Note:** All resources in this lab are tagged with `devopsagent = "true"`, which helps the agent identify and correlate related infrastructure components.
-
-> **📚 Documentation:** 
-> - [Creating an Agent Space](https://docs.aws.amazon.com/devopsagent/latest/userguide/getting-started-with-aws-devops-agent-creating-an-agent-space.html)
-> - [EKS Access Setup for DevOps Agent](https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent-aws-eks-access-setup.html)
-
-> **💡 Troubleshooting:** If you still encounter permission issues after configuring the EKS access entry, attach the `AmazonEKSClusterPolicy` managed policy to the DevOps Agent Execution Role in IAM to grant full EKS access.
+**Agent still getting 401 errors**
+- Wait 1-2 minutes for the access entry to propagate
+- Verify the policy `AmazonEKSClusterAdminPolicy` is associated
 
 ### View Topology Graph
 
@@ -1100,24 +1023,6 @@ The DevOps Agent automatically detects:
 | Database Connections | Orders → Aurora PostgreSQL | Security group rules, connection strings |
 | Message Queue Links | Orders → RabbitMQ | Environment variables, connection configs |
 | Cache Dependencies | Checkout → Redis | Pod configurations, endpoint references |
-
-#### Topology Discovery Process
-
-1. **Initial Scan** - When you create the Agent Space, it scans for tagged resources
-2. **Continuous Learning** - As investigations complete, new resources are discovered
-3. **Relationship Mapping** - The agent analyzes:
-   - Security group rules
-   - IAM policies and roles
-   - Kubernetes service configurations
-   - Network flow logs
-   - Application traces (X-Ray)
-
-#### Filtering the Topology
-
-Use filters to focus on specific areas:
-- **By Service** - Show only resources related to a specific microservice
-- **By Resource Type** - Filter by EKS, RDS, DynamoDB, etc.
-- **By Health Status** - Highlight unhealthy or degraded resources
 
 ### Operator Access
 
