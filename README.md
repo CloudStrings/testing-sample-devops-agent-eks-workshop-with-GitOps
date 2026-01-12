@@ -539,7 +539,7 @@ terraform output prometheus_workspace_endpoint
 
 The AWS DevOps Agent leverages the comprehensive observability stack to automatically investigate and diagnose issues:
 
-1. **Resource Discovery** - All resources are tagged with `devopsagent = "true"`, enabling automatic discovery of related infrastructure components.
+1. **Resource Discovery** - All resources are tagged with `eksdevopsagent = "true"`, enabling automatic discovery of related infrastructure components.
 
 2. **Metrics Correlation** - The agent queries Amazon Managed Prometheus and CloudWatch to identify anomalies in:
    - Pod CPU/memory utilization
@@ -572,7 +572,19 @@ When you inject faults using the provided scripts, the DevOps Agent can automati
 
 ## Prerequisites
 
-Before deploying and running fault injection scenarios, install the following tools:
+Before deploying and running fault injection scenarios, install the following tools.
+
+> **⚠️ Important: Platform Requirements**
+> 
+> The installation instructions below are for **Linux and macOS** environments.
+> 
+> The fault injection scripts (`inject-*.sh` and `rollback-*.sh`) require a **Linux/macOS bash environment** and will not run natively on Windows.
+> 
+> **Windows Users** have two options:
+> - **Recommended:** Use [AWS CloudShell](https://console.aws.amazon.com/cloudshell) - a browser-based shell with AWS CLI, kubectl, and Terraform pre-installed
+> - **Alternative:** Use WSL2 (Windows Subsystem for Linux), Git Bash, or SSH into a Linux EC2 instance
+> 
+> Terraform commands (`terraform init`, `plan`, `apply`, `destroy`) can be run from any terminal including Windows PowerShell or CMD.
 
 ### 1. AWS CLI
 

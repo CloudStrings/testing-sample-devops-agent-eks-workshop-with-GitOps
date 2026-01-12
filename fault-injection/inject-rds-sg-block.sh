@@ -6,19 +6,14 @@
 set -e
 
 REGION="${AWS_REGION:-us-east-1}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKUP_FILE="$SCRIPT_DIR/rds-sg-ids.json"
-
-# Initialize empty backup
-echo '{"region": "'$REGION'", "eks_cluster": "", "revoked_rules": []}' > "$BACKUP_FILE"
 
 echo "=== RDS Security Group Misconfiguration Injection ==="
 echo ""
 echo "Region: $REGION"
 echo ""
 
-# Step 1: Discover EKS cluster
-echo "[1/4] Discovering EKS cluster security groups..."
+# Auto-discover EKS security group
+echo "[1/4] Discovering EKS cluster security group..."
 EKS_CLUSTER=$(AWS_PAGER="" aws eks list-clusters --region $REGION --query "clusters[0]" --output text 2>/dev/null)
 
 if [ -z "$EKS_CLUSTER" ] || [ "$EKS_CLUSTER" == "None" ]; then
@@ -26,17 +21,22 @@ if [ -z "$EKS_CLUSTER" ] || [ "$EKS_CLUSTER" == "None" ]; then
   exit 1
 fi
 
-EKS_CLUSTER_SG=$(AWS_PAGER="" aws eks describe-cluster --region $REGION --name "$EKS_CLUSTER" \
+EKS_SG=$(AWS_PAGER="" aws eks describe-cluster --region $REGION --name "$EKS_CLUSTER" \
   --query "cluster.resourcesVpcConfig.clusterSecurityGroupId" --output text 2>/dev/null)
 
+if [ -z "$EKS_SG" ] || [ "$EKS_SG" == "None" ]; then
+  echo "ERROR: Could not find EKS security group for cluster $EKS_CLUSTER"
+  exit 1
+fi
+
 echo "  EKS Cluster: $EKS_CLUSTER"
-echo "  Cluster Security Group: $EKS_CLUSTER_SG"
+echo "  EKS Security Group: $EKS_SG"
 echo ""
 
-# Step 2: Discover all RDS instances
+# Auto-discover all RDS instances and their security groups
 echo "[2/4] Discovering RDS instances and security groups..."
 RDS_INFO=$(AWS_PAGER="" aws rds describe-db-instances --region $REGION \
-  --query "DBInstances[*].[DBInstanceIdentifier,VpcSecurityGroups[0].VpcSecurityGroupId,Endpoint.Port,Engine]" \
+  --query "DBInstances[*].[DBInstanceIdentifier,VpcSecurityGroups[0].VpcSecurityGroupId,Endpoint.Port]" \
   --output json 2>/dev/null)
 
 if [ -z "$RDS_INFO" ] || [ "$RDS_INFO" == "[]" ]; then
@@ -45,137 +45,143 @@ if [ -z "$RDS_INFO" ] || [ "$RDS_INFO" == "[]" ]; then
 fi
 
 echo "  Found RDS instances:"
-echo "$RDS_INFO" | jq -r '.[] | "    - \(.[0]) (\(.[3]), Port: \(.[2]), SG: \(.[1]))"'
+echo "$RDS_INFO" | jq -r '.[] | "    - \(.[0]) (SG: \(.[1]), Port: \(.[2]))"'
 echo ""
 
-# Step 3: Revoke security group rules and save to backup
-echo "[3/4] Discovering and revoking security group rules..."
-
+# Save backup info for rollback
+echo "[3/4] Backing up security group rules and revoking access..."
 REVOKED_RULES="[]"
-RDS_COUNT=$(echo "$RDS_INFO" | jq 'length')
 
-for i in $(seq 0 $((RDS_COUNT - 1))); do
-  DB_ID=$(echo "$RDS_INFO" | jq -r ".[$i][0]")
-  RDS_SG=$(echo "$RDS_INFO" | jq -r ".[$i][1]")
-  DB_PORT=$(echo "$RDS_INFO" | jq -r ".[$i][2]")
-  DB_ENGINE=$(echo "$RDS_INFO" | jq -r ".[$i][3]")
+# Process each RDS instance
+for row in $(echo "$RDS_INFO" | jq -r '.[] | @base64'); do
+  _jq() {
+    echo ${row} | base64 --decode | jq -r ${1}
+  }
   
-  echo "  Processing: $DB_ID ($DB_ENGINE, SG: $RDS_SG, Port: $DB_PORT)"
+  DB_ID=$(_jq '.[0]')
+  RDS_SG=$(_jq '.[1]')
+  DB_PORT=$(_jq '.[2]')
   
-  # Get all ingress rules for this security group
-  SG_RULES=$(AWS_PAGER="" aws ec2 describe-security-groups --region $REGION \
-    --group-ids $RDS_SG \
-    --query "SecurityGroups[0].IpPermissions" --output json 2>/dev/null)
+  echo "  Processing: $DB_ID (SG: $RDS_SG)"
   
-  if [ -z "$SG_RULES" ] || [ "$SG_RULES" == "null" ]; then
-    echo "    No rules found for security group"
-    continue
+  # Try to revoke port 5432 (PostgreSQL)
+  if AWS_PAGER="" aws ec2 revoke-security-group-ingress \
+    --group-id $RDS_SG \
+    --protocol tcp \
+    --port 5432 \
+    --source-group $EKS_SG \
+    --region $REGION 2>/dev/null; then
+    echo "    ✓ Revoked port 5432 (PostgreSQL)"
+    REVOKED_RULES=$(echo "$REVOKED_RULES" | jq ". + [{\"rds_sg\": \"$RDS_SG\", \"eks_sg\": \"$EKS_SG\", \"port\": 5432, \"db_id\": \"$DB_ID\"}]")
+  else
+    echo "    - Port 5432 rule not found or already removed"
   fi
   
-  RULE_COUNT=$(echo "$SG_RULES" | jq 'length')
-  
-  for j in $(seq 0 $((RULE_COUNT - 1))); do
-    rule=$(echo "$SG_RULES" | jq -c ".[$j]")
-    FROM_PORT=$(echo "$rule" | jq -r '.FromPort // empty')
-    TO_PORT=$(echo "$rule" | jq -r '.ToPort // empty')
-    
-    # Check if this rule covers the DB port
-    if [ "$FROM_PORT" == "$DB_PORT" ] || [ "$TO_PORT" == "$DB_PORT" ]; then
-      
-      # Process security group references
-      SG_PAIRS=$(echo "$rule" | jq -c '.UserIdGroupPairs // []')
-      SG_PAIR_COUNT=$(echo "$SG_PAIRS" | jq 'length')
-      
-      for k in $(seq 0 $((SG_PAIR_COUNT - 1))); do
-        SOURCE_SG=$(echo "$SG_PAIRS" | jq -r ".[$k].GroupId")
-        
-        if [ -n "$SOURCE_SG" ] && [ "$SOURCE_SG" != "null" ]; then
-          echo "    Found rule: port $DB_PORT from SG $SOURCE_SG"
-          
-          if AWS_PAGER="" aws ec2 revoke-security-group-ingress \
-            --group-id $RDS_SG \
-            --protocol tcp \
-            --port $DB_PORT \
-            --source-group $SOURCE_SG \
-            --region $REGION 2>/dev/null; then
-            echo "    ✓ Revoked port $DB_PORT from $SOURCE_SG"
-            # Add to revoked rules array
-            NEW_RULE="{\"rds_sg\": \"$RDS_SG\", \"source_sg\": \"$SOURCE_SG\", \"port\": $DB_PORT, \"db_id\": \"$DB_ID\", \"engine\": \"$DB_ENGINE\"}"
-            REVOKED_RULES=$(echo "$REVOKED_RULES" | jq ". + [$NEW_RULE]")
-          else
-            echo "    - Failed to revoke (may already be removed)"
-          fi
-        fi
-      done
-      
-      # Process CIDR blocks
-      CIDR_RANGES=$(echo "$rule" | jq -c '.IpRanges // []')
-      CIDR_COUNT=$(echo "$CIDR_RANGES" | jq 'length')
-      
-      for k in $(seq 0 $((CIDR_COUNT - 1))); do
-        CIDR=$(echo "$CIDR_RANGES" | jq -r ".[$k].CidrIp")
-        
-        if [ -n "$CIDR" ] && [ "$CIDR" != "null" ]; then
-          echo "    Found rule: port $DB_PORT from CIDR $CIDR"
-          
-          if AWS_PAGER="" aws ec2 revoke-security-group-ingress \
-            --group-id $RDS_SG \
-            --protocol tcp \
-            --port $DB_PORT \
-            --cidr $CIDR \
-            --region $REGION 2>/dev/null; then
-            echo "    ✓ Revoked port $DB_PORT from $CIDR"
-            # Add to revoked rules array
-            NEW_RULE="{\"rds_sg\": \"$RDS_SG\", \"cidr\": \"$CIDR\", \"port\": $DB_PORT, \"db_id\": \"$DB_ID\", \"engine\": \"$DB_ENGINE\"}"
-            REVOKED_RULES=$(echo "$REVOKED_RULES" | jq ". + [$NEW_RULE]")
-          else
-            echo "    - Failed to revoke (may already be removed)"
-          fi
-        fi
-      done
-    fi
-  done
+  # Try to revoke port 3306 (MySQL)
+  if AWS_PAGER="" aws ec2 revoke-security-group-ingress \
+    --group-id $RDS_SG \
+    --protocol tcp \
+    --port 3306 \
+    --source-group $EKS_SG \
+    --region $REGION 2>/dev/null; then
+    echo "    ✓ Revoked port 3306 (MySQL)"
+    REVOKED_RULES=$(echo "$REVOKED_RULES" | jq ". + [{\"rds_sg\": \"$RDS_SG\", \"eks_sg\": \"$EKS_SG\", \"port\": 3306, \"db_id\": \"$DB_ID\"}]")
+  else
+    echo "    - Port 3306 rule not found or already removed"
+  fi
 done
 
-# Save backup file
-echo "{\"region\": \"$REGION\", \"eks_cluster\": \"$EKS_CLUSTER\", \"eks_cluster_sg\": \"$EKS_CLUSTER_SG\", \"revoked_rules\": $REVOKED_RULES}" > "$BACKUP_FILE"
-
+# Save revoked rules for rollback (use script directory)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "{\"region\": \"$REGION\", \"eks_sg\": \"$EKS_SG\", \"revoked_rules\": $REVOKED_RULES}" > "$SCRIPT_DIR/rds-sg-ids.json"
 echo ""
-echo "  Backup saved to: $BACKUP_FILE"
+echo "  Backup saved to: $SCRIPT_DIR/rds-sg-ids.json"
 
 REVOKED_COUNT=$(echo "$REVOKED_RULES" | jq 'length')
 if [ "$REVOKED_COUNT" -eq 0 ]; then
   echo ""
   echo "WARNING: No rules were revoked. Security groups may not have matching rules."
-  echo "Check the RDS security groups manually in the AWS Console."
   exit 0
 fi
 
 echo ""
-echo "=== Revoked $REVOKED_COUNT security group rules ==="
+echo "=== Security Group Misconfiguration Injection Complete ==="
+echo ""
+echo "Revoked $REVOKED_COUNT security group rules"
 echo ""
 
-# Step 4: Restart pods
+# Step 4: Restart pods to trigger connection errors
 echo "[4/4] Restarting application pods to trigger connection errors..."
 
-if kubectl get deployment -n catalog catalog &>/dev/null; then
-  kubectl rollout restart deployment -n catalog catalog 2>/dev/null && echo "  ✓ Restarted catalog deployment"
-fi
-
+# Restart orders deployment
 if kubectl get deployment -n orders orders &>/dev/null; then
   kubectl rollout restart deployment -n orders orders 2>/dev/null && echo "  ✓ Restarted orders deployment"
+fi
+
+# Restart checkout deployment
+if kubectl get deployment -n checkout checkout &>/dev/null; then
+  kubectl rollout restart deployment -n checkout checkout 2>/dev/null && echo "  ✓ Restarted checkout deployment"
+fi
+
+# Restart catalog deployment
+if kubectl get deployment -n catalog catalog &>/dev/null; then
+  kubectl rollout restart deployment -n catalog catalog 2>/dev/null && echo "  ✓ Restarted catalog deployment"
 fi
 
 echo ""
 echo "Waiting 30 seconds for pods to restart and fail..."
 sleep 30
 
+# Step 5: Generate traffic to trigger errors via port-forward
+echo ""
+echo "[5/5] Generating traffic to trigger database connection errors..."
+
+# Function to generate traffic to a service (services use port 80)
+generate_traffic() {
+  local namespace=$1
+  local service=$2
+  local local_port=$3
+  local endpoint=$4
+  
+  # Start port-forward in background (service port is 80)
+  kubectl port-forward -n $namespace svc/$service $local_port:80 &>/dev/null &
+  local pf_pid=$!
+  sleep 2
+  
+  if kill -0 $pf_pid 2>/dev/null; then
+    echo "  Sending requests to $service..."
+    for i in {1..10}; do
+      curl -s -o /dev/null -w "%{http_code} " "http://localhost:$local_port$endpoint" 2>/dev/null
+    done
+    echo ""
+    kill $pf_pid 2>/dev/null
+    echo "  ✓ $service: 10 requests sent"
+  else
+    echo "  - Could not port-forward to $service"
+  fi
+}
+
+# Generate traffic to services that use database (using different local ports)
+generate_traffic "orders" "orders" 8080 "/orders"
+generate_traffic "checkout" "checkout" 8081 "/checkout"
+generate_traffic "catalog" "catalog" 8082 "/catalogue"
+
+echo "  ✓ Traffic burst complete"
+
 echo ""
 echo "=== Fault Injection Active ==="
 echo ""
-echo "Symptoms:"
-echo "  - Catalog service: Cannot connect to MySQL (port 3306)"
-echo "  - Orders service: Cannot connect to PostgreSQL (port 5432)"
+echo "Expected symptoms:"
+echo "  - Orders/Checkout/Catalog service failures"
+echo "  - 'Connection timed out' or 'Connection refused' in pod logs"
+echo "  - Pods in CrashLoopBackOff or Error state"
+echo "  - RDS instances show healthy in console (but unreachable from EKS)"
+echo "  - VPC Flow Logs show REJECT for ports 3306/5432 traffic"
 echo ""
-echo "Rollback command:"
-echo "  ./fault-injection/rollback-rds-sg-block.sh"
+echo "Check application logs for errors:"
+echo "  kubectl logs -n orders -l app.kubernetes.io/name=orders --tail=50"
+echo "  kubectl logs -n checkout -l app.kubernetes.io/name=checkout --tail=50"
+echo "  kubectl logs -n catalog -l app.kubernetes.io/name=catalog --tail=50"
+echo ""
+echo "Rollback:"
+echo "  ./~/fault-injection/rollback-rds-sg-block.sh"
