@@ -1250,8 +1250,11 @@ Simulates high latency and CPU stress in the Catalog microservice.
 
 **Symptom:** Product pages are loading slowly.
 
-**Sample Prompt:**
-> "Product pages are loading slowly. The catalog service seems to be responding with high latency. Can you investigate what's causing the performance degradation?"
+**Investigation details:**
+> "The catalog service is experiencing performance issues. Users are complaining about product pages taking excessively long to load. Please analyze the logs for the catalog microservice to provide detailed analysis and identify the root cause of this performance degradation."
+
+**Investigation starting point:**
+> "Product page performance has become unacceptable, with load times exceeding 8-10 seconds instead of the normal 1-2 seconds. Analyze the catalog service pods' CPU utilization metrics to identify resource-related issues. Check for CPU throttling, resource limit violations, and any unusual consumption spikes that correlate with the performance degradation."
 
 ---
 
@@ -1270,8 +1273,11 @@ Blocks ingress traffic to the UI service using Kubernetes NetworkPolicy.
 
 **Symptom:** Website is unreachable.
 
-**Sample Prompt:**
-> "The retail store website is completely unreachable. Users are reporting connection timeouts when trying to access the site. Can you investigate the network connectivity issue?"
+**Investigation details:**
+> "UI pod unreachable from other pods in cluster. Pod-to-pod communication failing. Use EKS audit logs in CloudWatch for networking/RBAC investigation"
+
+**Investigation starting point:**
+> "Check pod state and Services via K8s API. For NetworkPolicies and Endpoints, query CloudWatch audit logs (/aws/eks/<cluster-name>/cluster). Then check AWS networking (SGs, NACLs), then application logs. Work from network layer up to application layer"
 
 ---
 
@@ -1290,8 +1296,11 @@ Simulates an accidental security group change that blocks EKS nodes from connect
 
 **Symptom:** Catalog pod is crashing.
 
-**Sample Prompt:**
-> "The catalog pod keeps crashing and restarting. It was working fine earlier today but now it can't seem to stay healthy. Can you investigate why the catalog service is failing?"
+**Investigation details:**
+> "Multiple critical services have failed simultaneously with catalog and orders pods stuck in continuous crash loops. Both services were functioning normally until recently but now cannot complete startup, preventing customers from browsing products or placing orders. Investigate the startup failures and database connection errors to identify what's preventing these services from accessing their required databases."
+
+**Investigation starting point:**
+> "Examine the catalog namespaces where pods are showing CrashLoopBackOff status. Focus on container startup logs for database connection failures and analyze what could be blocking database access from the EKS cluster."
 
 ---
 
@@ -1310,8 +1319,11 @@ Simulates a memory leak in the Cart service causing OOMKill and pod restarts.
 
 **Symptom:** Intermittent cart failures, pods restarting.
 
-**Sample Prompt:**
-> "Users are experiencing intermittent cart failures. Sometimes adding items to cart works, sometimes it doesn't. I've noticed the cart pods are restarting frequently. Can you investigate what's causing the instability?"
+**Investigation details:**
+> "The cart service has become unstable with pods experiencing frequent restarts and intermittent failures, causing customers to lose shopping cart items and encounter checkout disruptions. This service was functioning reliably until recently but now shows a pattern of repeated crashes and restarts that suggests resource-related issues. Investigate the pod restart patterns, container health, and resource consumption to identify what's causing these persistent stability problems affecting the shopping experience."
+
+**Investigation starting point:**
+> "Examine the cart service pods in the carts namespace that are showing frequent restart behavior. Focus on pod events, container status, and restart patterns to determine what's causing the repeated failures and service instability."
 
 ---
 
@@ -1330,8 +1342,11 @@ Deploys a stress pod that hammers DynamoDB with read requests, causing throttlin
 
 **Symptom:** Slow performance and occasional failures.
 
-**Sample Prompt:**
-> "The cart service is experiencing slow performance and occasional failures. Users are complaining about delays when viewing or updating their shopping carts. Can you investigate the DynamoDB-related issues?"
+**Investigation details:**
+> "The application is experiencing widespread performance degradation with cart operations becoming significantly slower than normal. Users are reporting that previously instant functionality like adding items to cart, updating quantities, and checkout processes now take several seconds to complete, with some operations timing out entirely. This performance issue appears to affect data-intensive operations while basic page browsing remains normal, suggesting a backend data store performance problem. Investigate the performance bottlenecks affecting cart functionality and identify what's causing the slowdown in data operations."
+
+**Investigation starting point:**
+> "Focus on the cart service and its data operations that are experiencing performance degradation. Examine backend data store metrics, application response times, and any unusual traffic patterns that could be causing the slowdown in cart functionality."
 
 ---
 
