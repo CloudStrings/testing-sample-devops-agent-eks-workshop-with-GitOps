@@ -9,7 +9,7 @@ spec:
   project: default
   
   source:
-    repoURL: https://github.com/CloudStrings/sample-devops-agent-eks-workshop.git
+    repoURL: https://github.com/CloudStrings/testing-sample-devops-agent-eks-workshop-with-GitOps.git
     targetRevision: main
     path: argocd-apps
   
