@@ -65,7 +65,12 @@ configMap:
   name:
 
 app:
-  endpoints: {}
+  persistence:
+    provider: 'redis'
+    redis:
+      endpoint: 'my-retail-cluster-checkout.dg8ir6.ng.0001.use1.cache.amazonaws.com:6379'
+  endpoints:
+    orders: 'http://retail-orders.orders.svc.cluster.local'
   redis:
     enabled: true
     host: my-retail-cluster-checkout.dg8ir6.ng.0001.use1.cache.amazonaws.com
