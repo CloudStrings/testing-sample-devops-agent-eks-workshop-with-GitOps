@@ -14,12 +14,8 @@ nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
   create: true
-  # Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
   name: ""
 
 podAnnotations: {}
@@ -51,14 +47,10 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
-
 tolerations: []
-
 affinity: {}
-
 topologySpreadConstraints: []
 
 metrics:
@@ -74,92 +66,36 @@ configMap:
 
 app:
   persistence:
-    provider: 'in-memory'
-    endpoint: ''
+    provider: 'postgres'
+    endpoint: 'my-retail-cluster-orders.cluster-ckkvo5l8bvyn.us-east-1.rds.amazonaws.com:5432'
     database: 'orders'
 
     secret:
       create: true
       name: orders-db
-      username: orders
-      password: ""
+      username: root
+      password: "XNNWK4vF5Z"
 
   messaging:
-    provider: 'in-memory'
+    provider: 'rabbitmq'
 
     rabbitmq:
-      addresses: []
+      addresses: ["amqps://b-c43cc017-e9a7-4a4b-9e7a-39fe78f77526.mq.us-east-1.on.aws:5671"]
 
       secret:
         create: true
         name: orders-rabbitmq
-        username: ""
-        password: ""
+        username: default_mq_user
+        password: "+NxJ7)eM5yW&Ngqj"
 
 postgresql:
   create: false
 
-  image:
-    repository: public.ecr.aws/docker/library/postgres
-    pullPolicy: IfNotPresent
-    tag: "16.1"
-
-  service:
-    type: ClusterIP
-    port: 5432
-
-  podAnnotations: {}
-
-  nodeSelector: {}
-
-  tolerations: []
-
-  affinity: {}
-
-  persistentVolume:
-    enabled: false
-    annotations: {}
-    labels: {}
-    accessModes:
-      - ReadWriteOnce
-    size: 10Gi
-    # storageClass: gp2
-
 rabbitmq:
   create: false
 
-  image:
-    repository: "public.ecr.aws/docker/library/rabbitmq"
-    pullPolicy: IfNotPresent
-    tag: "3-management"
-
-  service:
-    type: ClusterIP
-    amqp:
-      port: 5672
-    http:
-      port: 15672
-
-  podAnnotations: {}
-
-  nodeSelector: {}
-
-  tolerations: []
-
-  affinity: {}
-
-  persistentVolume:
-    enabled: false
-    annotations: {}
-    labels: {}
-    accessModes:
-      - ReadWriteOnce
-    size: 10Gi
-    # storageClass: gp2
-
 securityGroups:
   create: false
-
   securityGroupIds: []
 
 opentelemetry:

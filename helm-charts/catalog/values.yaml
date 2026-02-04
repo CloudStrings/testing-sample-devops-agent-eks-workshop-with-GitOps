@@ -14,12 +14,8 @@ nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
   create: true
-  # Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
   name: ""
 
 podAnnotations: {}
@@ -51,14 +47,10 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
-
 tolerations: []
-
 affinity: {}
-
 topologySpreadConstraints: []
 
 metrics:
@@ -74,44 +66,18 @@ configMap:
 
 app:
   persistence:
-    provider: in-memory
-    endpoint: ""
+    provider: mysql
+    endpoint: "my-retail-cluster-catalog.cluster-ckkvo5l8bvyn.us-east-1.rds.amazonaws.com:3306"
     database: "catalog"
 
     secret:
       create: true
       name: catalog-db
-      username: catalog
-      password: ""
+      username: root
+      password: "ibWdlduuOP"
 
 mysql:
   create: false
-
-  image:
-    repository: public.ecr.aws/docker/library/mysql
-    pullPolicy: IfNotPresent
-    tag: "8.0"
-
-  service:
-    type: ClusterIP
-    port: 3306
-
-  podAnnotations: {}
-
-  nodeSelector: {}
-
-  tolerations: []
-
-  affinity: {}
-
-  persistentVolume:
-    enabled: false
-    annotations: {}
-    labels: {}
-    accessModes:
-      - ReadWriteOnce
-    size: 10Gi
-    storageClass: ""
 
 securityGroups:
   create: false

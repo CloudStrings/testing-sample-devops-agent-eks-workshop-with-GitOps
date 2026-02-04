@@ -15,7 +15,8 @@ data "aws_eks_cluster_auth" "cluster" {
 }
 
 data "kubernetes_ingress_v1" "ui_ingress" {
-  depends_on = [helm_release.ui]
+  # Dependency removed - UI is now managed by ArgoCD
+  depends_on = [kubernetes_namespace_v1.ui]
 
   metadata {
     name      = "ui"

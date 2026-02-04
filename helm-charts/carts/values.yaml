@@ -14,12 +14,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
   create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::056432204237:role/-carts-dynamo
   name: ""
 
 podAnnotations: {}
@@ -51,14 +48,10 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
-
 tolerations: []
-
 affinity: {}
-
 topologySpreadConstraints: []
 
 metrics:
@@ -74,30 +67,13 @@ configMap:
 
 app:
   persistence:
-    provider: in-memory
+    provider: dynamodb
     dynamodb:
-      tableName: Items
+      tableName: my-retail-cluster-carts
       createTable: false
 
 dynamodb:
   create: false
-
-  image:
-    repository: public.ecr.aws/aws-dynamodb-local/aws-dynamodb-local
-    pullPolicy: IfNotPresent
-    tag: "1.25.1"
-
-  service:
-    type: ClusterIP
-    port: 8000
-
-  podAnnotations: {}
-
-  nodeSelector: {}
-
-  tolerations: []
-
-  affinity: {}
 
 opentelemetry:
   enabled: false

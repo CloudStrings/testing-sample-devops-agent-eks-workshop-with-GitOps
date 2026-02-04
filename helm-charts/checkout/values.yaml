@@ -10,17 +10,13 @@ image:
   tag: 
 
 imagePullSecrets: []
-nameOverride: ''
-fullnameOverride: ''
+nameOverride: ""
+fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
   create: true
-  # Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ''
+  name: ""
 
 podAnnotations: {}
 
@@ -31,7 +27,7 @@ securityContext:
   capabilities:
     drop:
       - ALL
-  readOnlyRootFilesystem: true
+  readOnlyRootFilesystem: false
   runAsNonRoot: true
   runAsUser: 1000
 
@@ -41,74 +37,50 @@ service:
 
 resources:
   limits:
-    memory: 256Mi
+    memory: 512Mi
   requests:
-    cpu: 128m
-    memory: 256Mi
+    cpu: 256m
+    memory: 512Mi
 
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
-
 tolerations: []
-
 affinity: {}
-
 topologySpreadConstraints: []
 
 metrics:
   enabled: true
   podAnnotations:
-    prometheus.io/scrape: 'true'
-    prometheus.io/port: '8080'
-    prometheus.io/path: '/metrics'
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/actuator/prometheus"
 
 configMap:
   create: true
   name:
 
 app:
-  persistence:
-    provider: 'in-memory'
-    redis:
-      endpoint: ''
-
-  endpoints:
-    orders: ''
+  endpoints: {}
+  redis:
+    enabled: true
+    host: my-retail-cluster-checkout.dg8ir6.ng.0001.use1.cache.amazonaws.com
+    port: 6379
 
 redis:
   create: false
 
-  image:
-    repository: redis
-    pullPolicy: IfNotPresent
-    tag: '6.0-alpine'
-
-  service:
-    type: ClusterIP
-    port: 6379
-
-  podAnnotations: {}
-
-  nodeSelector: {}
-
-  tolerations: []
-
-  affinity: {}
-
 securityGroups:
   create: false
-
   securityGroupIds: []
 
 opentelemetry:
   enabled: false
-  instrumentation: ''
+  instrumentation: ""
 
 podDisruptionBudget:
   enabled: false
